@@ -7,14 +7,11 @@ template<typename T>
 class Ray{
 
 public:
-    __host__ __device__ Ray(Point3<T>* origin, Vec3<T>* direction);
-
-    __host__ __device__ static Ray randomInHemisphere();
-
-    __host__ __device__ Vec3<T>* getDirection(){return direction;};
-    __host__ __device__ Vec3<T>* getOrigin(){return origin;};
+    __host__ __device__ Ray(Point3<T>& origin, Vec3<T>& direction) : origin(origin), direction(direction){};
+    __host__ __device__ Vec3<T>& getDirection() const {return direction;}
+    __host__ __device__ Point3<T>& getOrigin() const {return origin;};
 
 private:
-    Vec3<T>* origin;
-    Vec3<T>* direction;
+    Point3<T>& origin;
+    Vec3<T>& direction;
 };

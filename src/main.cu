@@ -5,6 +5,7 @@
 #include "bvh/BVH.cuh"
 #include "sizedArray/SizedArray.cuh"
 #include "primitives/Point3.cuh"
+#include "primitives/Ray.cuh"
 
 __global__ 
 void render(float* const positions, const int width, const int height) {
@@ -24,22 +25,10 @@ void createPoints(float* const positions, const int width, const int height, Siz
     }
 }
 
-/*
-__global__ 
-void buildBVH(float* const positions, const int width, const int height){
-    const int i = threadIdx.x + blockIdx.x * blockDim.x;
-    const int j = threadIdx.y + blockIdx.y * blockDim.y;
-
-    bvh = new BVH<float>(positions)
+__global__
+void buildBVH(){
+    
 }
-
-void trace(Ray ray, BVH bvh){
-    Box* box = bvh.findIntersect(ray);
-    if(box != nullptr){
-
-    }
-}
-*/
 
 int main(){
     const char* filename = "data/data.tif";
@@ -51,19 +40,52 @@ int main(){
 
     const unsigned int nbPixels = raster.getWidth()*raster.getHeight();
 
+    // Read data from raster
     float* data;
     checkError(cudaMallocManaged(&data, nbPixels*sizeof(float)));
     raster.readData(data);
 
+    // Create points in 3D
     Point3<float>* pointsData;
     checkError(cudaMallocManaged(&pointsData, nbPixels*sizeof(Point3<float>)));
     SizedArray<Point3<float>> points(pointsData, nbPixels);
-    createPoints<<<1,1>>>(data, raster.getWidth(), raster.getHeight(), points);
+    //createPoints<<<1,1>>>(data, raster.getWidth(), raster.getHeight(), points);
+    for(int x=0; x<raster.getWidth(); x++){
+        for(int y=0; y<raster.getHeight(); y++){
+            const int index = y*raster.getWidth()+x;
+            points[index] = Point3<float>(x,y,data[index]);
+        }
+    }
 
 
-    const dim3 THREADS(8,8);
+    // Build BVH
+    std::cout << "Building BVH...\n";
+    BVH<float>* bvh = new BVH<float>(points);
+    std::cout << "BVH built\n";
+
+    // Trace
+    std::cout << "Start tracing...\n";
+    //curandState randState = curandState();
+    //curand_init(4132, 0, 0, &randState);
+    for(int i=0; i<points.getSize(); i++){
+        Point3<float> point = points[i];
+
+        float result = 0;
+        for(int j=0; j<5; j++){
+            Vec3<float> direction = Vec3<float>::randomInHemisphere();
+            Ray<float> ray = Ray<float>(point, direction);
+            result += bvh->isIntersecting(ray)?0.0:1.0;
+        }
+        
+        data[i] = result/5;
+        //std::cout << "Intersect : " << result << '\n';
+    }
+    std::cout << "Trace finished...\n";
+
+   
+    /*const dim3 THREADS(8,8);
     const dim3 blocks(raster.getWidth()/THREADS.x+1, raster.getHeight()/THREADS.y+1);
-    render<<<blocks, THREADS>>>(data, raster.getWidth(), raster.getHeight());
+    render<<<blocks, THREADS>>>(data, raster.getWidth(), raster.getHeight());*/
 
     checkError(cudaGetLastError());
     checkError(cudaDeviceSynchronize());
