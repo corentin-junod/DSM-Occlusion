@@ -2,27 +2,25 @@
 
 #include "Point3.cuh"
 #include "Ray.cuh"
-#include "../sizedArray/SizedArray.cuh"
+#include "../array/Array.cuh"
 
 #include <limits>
-#include <algorithm>
-#include <stdexcept>
+
+constexpr int MAX_INT = std::numeric_limits<int>::max();
+constexpr int MIN_INT = std::numeric_limits<int>::min();
 
 template<typename T>
 class Bbox{
 public:
 
     __host__ __device__ Bbox(T minX, T maxX, T minY, T maxY, T minZ, T maxZ) :
-        minX(minX), maxX(maxX), minY(minY), 
-        maxY(maxY), minZ(minZ), maxZ(maxZ), 
+        minX(minX), maxX(maxX), minY(minY), maxY(maxY), minZ(minZ), maxZ(maxZ), 
         center(Point3<T>((maxX+minX)/2, (maxY+minY)/2, (maxZ+minZ)/2)){};
 
-    __host__  static Bbox getEnglobing(SizedArray<Point3<T>>& objList){
-        const int MAX_INT = std::numeric_limits<int>::max();
-        const int MIN_INT = std::numeric_limits<int>::min();
-        int minX = MAX_INT, minY = MAX_INT, minZ = MAX_INT;
-        int maxX = MIN_INT, maxY = MIN_INT, maxZ = MIN_INT;
-        for(Point3<T> point : objList){
+    __host__ __device__ static Bbox getEnglobing(const Array<Point3<T>>& objList){
+        T minX = MAX_INT, minY = MAX_INT, minZ = MAX_INT;
+        T maxX = MIN_INT, maxY = MIN_INT, maxZ = MIN_INT;
+        for(const Point3<T>& point : objList){
             if(point.x < minX) minX = point.x;
             if(point.x > maxX) maxX = point.x;
             if(point.y < minY) minY = point.y;
@@ -33,31 +31,21 @@ public:
         return Bbox(minX, maxX, minY, maxY, minZ, maxZ);
     }
 
-    __host__ __device__ Bbox merge(const Bbox* const other) const {
-        const int newMinX = std::min(minX, other->minX);
-        const int newMinY = std::min(minY, other->minY);
-        const int newMinZ = std::min(minZ, other->minZ);
-        const int newMaxX = std::max(maxX, other->maxX);
-        const int newMaxY = std::max(maxY, other->maxY);
-        const int newMaxZ = std::max(maxZ, other->maxZ);
-        return Bbox(newMinX, newMaxX, newMinY, newMaxY, newMinZ, newMaxZ);
-    }
-
-    __host__ __device__ int getEdgeLength(const int axis) const {
+    __host__ __device__ T getEdgeLength(const char axis) const {
         switch (axis) {
-            case 0  : return maxX - minX;
-            case 1  : return maxY - minY;
-            default : return maxZ - minZ;
+            case 'X' : return maxX - minX;
+            case 'Y' : return maxY - minY;
+            default  : return maxZ - minZ;
         }
     }
 
-    __host__ __device__ Point3<T> getCenter() const {return center;}
+    __host__ __device__ const Point3<T>& getCenter() const {return center;}
 
     __host__ __device__ bool intersects(const Ray<T>& ray) const {
         float min, max;
 
-        const Vec3<T> rayDir = ray.getDirection();
-        const Point3<T> rayOrigin = ray.getOrigin();
+        const Vec3<T>& rayDir = ray.getDirection();
+        const Point3<T>& rayOrigin = ray.getOrigin();
 
         const float xInverse = 1 / rayDir.x;
         const float tNearX = (minX - rayOrigin.x) * xInverse;
@@ -100,13 +88,12 @@ public:
         return min < max;
     }
 
-
 private:
-    const int minX;
-    const int maxX;
-    const int minY;
-    const int maxY;
-    const int minZ;
-    const int maxZ;
+    const T minX;
+    const T maxX;
+    const T minY;
+    const T maxY;
+    const T minZ;
+    const T maxZ;
     const Point3<T> center;
 };

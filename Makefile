@@ -27,11 +27,17 @@ $(BUILD_DIR)/%.cu.o: %.cu
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 
-build:
-	make
+release: CXXFLAGS += -O3
+release: CC       += -O3
+release: build
 
-run:
-	make
+debug: CXXFLAGS += -g -G
+debug: CC       += -g -G
+debug: build
+
+build: $(BUILD_DIR)/$(TARGET_EXEC)
+
+run: build
 	$(BUILD_DIR)/$(TARGET_EXEC)
 
 clean:
