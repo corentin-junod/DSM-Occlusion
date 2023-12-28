@@ -17,16 +17,17 @@ public:
         minX(minX), maxX(maxX), minY(minY), maxY(maxY), minZ(minZ), maxZ(maxZ), 
         center(Point3<T>((maxX+minX)/2, (maxY+minY)/2, (maxZ+minZ)/2)){};
 
-    __host__ __device__ static Bbox getEnglobing(const Array<Point3<T>>& objList){
+    __host__ __device__ static Bbox getEnglobing(const Point3<T>** const points, int size){
         T minX = MAX_INT, minY = MAX_INT, minZ = MAX_INT;
         T maxX = MIN_INT, maxY = MIN_INT, maxZ = MIN_INT;
-        for(const Point3<T>& point : objList){
-            if(point.x < minX) minX = point.x;
-            if(point.x > maxX) maxX = point.x;
-            if(point.y < minY) minY = point.y;
-            if(point.y > maxY) maxY = point.y;
-            if(point.z < minZ) minZ = point.z;
-            if(point.z > maxZ) maxZ = point.z;
+        for(int i=0; i<size; i++){
+            const Point3<T>* const point = points[i];
+            if(point->x < minX) minX = point->x;
+            if(point->x > maxX) maxX = point->x;
+            if(point->y < minY) minY = point->y;
+            if(point->y > maxY) maxY = point->y;
+            if(point->z < minZ) minZ = point->z;
+            if(point->z > maxZ) maxZ = point->z;
         }
         return Bbox(minX, maxX, minY, maxY, minZ, maxZ);
     }
@@ -58,7 +59,7 @@ public:
             min = tNearX;
             max = tFarX;
         }
-
+        
         const float yInverse = 1 / rayDir.y;
         const float tNearY = (minY - rayOrigin.y) * yInverse;
         const float tFarY  = (maxY - rayOrigin.y) * yInverse;
@@ -77,7 +78,7 @@ public:
         const float tNearZ = (minZ - rayOrigin.z) * zInverse;
         const float tFarZ  = (maxZ - rayOrigin.z) * zInverse;
 
-        if(tNearZ > tFarZ){
+       if(tNearZ > tFarZ){
             min = min < tFarZ  ? tFarZ  : min;
             max = max > tNearZ ? tNearZ : max;
         }else{

@@ -3,7 +3,7 @@
 void check_error(cudaError_t result, const char* const func, const char* const file, const int line) {
     if (result) {
         unsigned int res = static_cast<unsigned int>(result);
-        std::cerr << "CUDA error = "<<res<<" at "<<file<<":"<<line<<" '"<<func<<"'\n";
+        std::cerr << "CUDA error = "<<res<<" ("<< cudaGetErrorString(result) <<") at "<<file<<":"<<line<<" '"<<func<<"'\n";
         cudaDeviceReset();
         exit(1);
     }

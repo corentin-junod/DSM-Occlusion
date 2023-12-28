@@ -11,15 +11,13 @@
 #include "primitives/Point3.cuh"
 #include "primitives/Ray.cuh"
 
-/*__global__ 
-void render(float* const positions, const int width, const int height) {
-    const int i = threadIdx.x + blockIdx.x * blockDim.x;
-    const int j = threadIdx.y + blockIdx.y * blockDim.y;
-    if(i>=width || j>=height) return;
-    positions[j*width+i] *= 20;
-}*/
+__global__  
+void buildBVH(BVH<float>** bvh, Array<Point3<float>>& pointsArray){
+    *bvh = new BVH<float>(pointsArray);
+}
 
-__global__ void initRender(int maxX, int maxY, curandState* randomState) {
+__global__ 
+void initRender(int maxX, int maxY, curandState* randomState) {
    const int x = threadIdx.x + blockIdx.x * blockDim.x;
    const int y = threadIdx.y + blockIdx.y * blockDim.y;
    if(x>=maxX || y>=maxY) return;
@@ -28,7 +26,7 @@ __global__ void initRender(int maxX, int maxY, curandState* randomState) {
 }
 
 __global__
-void trace(float* data, Array<Point3<float>>& pointsArray, int maxX, int maxY, BVH<float>& bvh, BVHNode<float>* bvhRoot, int rayPerPoint, curandState* randomState, BVHNode<float>** workingBuffer){
+void trace(float* data, Array<Point3<float>>& pointsArray, int maxX, int maxY, BVH<float>* bvh, int rayPerPoint, curandState* randomState){
     const int x = threadIdx.x + blockIdx.x * blockDim.x;
     const int y = threadIdx.y + blockIdx.y * blockDim.y;
     if(x>=maxX || y>=maxY) return;
@@ -38,12 +36,14 @@ void trace(float* data, Array<Point3<float>>& pointsArray, int maxX, int maxY, B
     Vec3<float> direction = Vec3<float>(0,0,0);
     Ray<float> ray = Ray<float>(origin, direction);
 
+    BVHNode<float>* buffer;
+    cudaMalloc(&buffer, bvh->size()*sizeof(BVHNode<float>));
 
     ray.setOrigin(pointsArray[index]);
     float result = 0;
     for(int i=0; i<rayPerPoint; i++){
         ray.setDirection(Vec3<float>::randomInHemisphere(randomState));
-        result += bvh.isIntersectingRec(ray, bvhRoot)?0.0:1.0;
+        result += bvh->isIntersectingIterGPU(ray, &buffer)?0.0:1.0;
     }
     data[index] = result/rayPerPoint;
 }
@@ -66,24 +66,28 @@ int main(){
     // Create points in 3D
     Point3<float>* points;
     checkError(cudaMallocManaged(&points, nbPixels*sizeof(Point3<float>)));
-    Array<Point3<float>> pointsArray = Array<Point3<float>>(points, nbPixels);
+
+    void* pointsArrayLoc;
+    checkError(cudaMallocManaged(&pointsArrayLoc, sizeof(Array<Point3<float>>)));
+    Array<Point3<float>>* pointsArray = new(pointsArrayLoc) Array<Point3<float>>(points, nbPixels);
+    
+    /*
+    Array<Point3<float>>* memLoc;
+    checkError(cudaMallocManaged(&memLoc, sizeof(Array<Point3<float>>)));
+    Array<Point3<float>>* pointsArray = new(memLoc) Array<Point3<float>>(points, nbPixels);
+    */
+
     for(int y=0; y<raster.getHeight(); y++){
         for(int x=0; x<raster.getWidth(); x++){
             const int index = y*raster.getWidth()+x;
-            pointsArray[index] = Point3<float>(x,y,data[index]);
+            (*pointsArray)[index] = Point3<float>(x,y,data[index]);
         }
     }
 
     // Build BVH
     std::cout << "Building BVH...\n";
-    BVH<float> bvh = BVH<float>(pointsArray);
-    // Copy memory to GPU
-    BVHNode<float>* bvhNodes;
-    checkError(cudaMallocManaged(&bvhNodes, bvh.size()*sizeof(BVHNode<float>)));
-    bvh.copyNodes(bvhNodes);
-
-
-
+    BVH<float>* bvh;
+    buildBVH<<<1,1>>>(&bvh, *pointsArray);
     std::cout << "BVH built\n";
 
     // Trace
@@ -128,9 +132,6 @@ int main(){
     }
 */
 
-    BVHNode<float>** workingBuffer;
-    checkError(cudaMallocManaged(&workingBuffer, bvh.size()*sizeof(BVHNode<float>*))); 
-
     const dim3 threads(8,8);
     const dim3 blocks(raster.getWidth()/threads.x+1, raster.getHeight()/threads.y+1);
     curandState* randomState;
@@ -139,7 +140,7 @@ int main(){
     checkError(cudaGetLastError());
     checkError(cudaDeviceSynchronize());
     trace<<<blocks, threads>>>(
-        data, pointsArray, raster.getWidth(), raster.getHeight(),  bvh, bvhNodes, NB_RAY_PER_POINT, randomState, workingBuffer);
+        data, *pointsArray, raster.getWidth(), raster.getHeight(), bvh, NB_RAY_PER_POINT, randomState);
     checkError(cudaGetLastError());
     checkError(cudaDeviceSynchronize());
 
