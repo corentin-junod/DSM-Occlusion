@@ -6,23 +6,35 @@
 
 template<typename T>
 struct BVHNode{
-    Bbox<T> bbox;
+    Bbox<T>* bbox;
     BVHNode* left;
     BVHNode* right;
     Array<Point3<T>>* elements;
+    __host__ __device__ BVHNode() : bbox(nullptr), left(nullptr), right(nullptr), elements(nullptr) {}
 };
 
-template<typename T>
-struct ArraySection{
-    Point3<T>** head;
-    int size;
+template <typename T>
+struct ArraySegment{
+    Point3<T>* head;
+    Point3<T>* tail;
+    BVHNode<T>* node;
 };
+
+template <typename T>
+struct Stack {
+    ArraySegment<T>* data;
+    unsigned int size;
+    __host__ __device__ void push(ArraySegment<T> value) {data[size++] = value;}
+    __host__ __device__ ArraySegment<T> pop() {return data[--size];}
+};
+
+
 
 template<typename T>
 class BVH{
 
 public:
-    __host__ __device__ BVH(Array<Point3<T>>& points) : root(BVH::build(points)){}
+    __host__ __device__ BVH(Array<Point3<T>>& points, ArraySegment<T>* stackMemory, Point3<T>** workingBufferPMemory) : root(BVH::build(points, stackMemory, workingBufferPMemory)){}
     __host__ __device__ int size() const {return nbElements;}
     __host__ __device__ BVHNode<T>* getRoot() const {return root;}
 
@@ -35,61 +47,51 @@ private:
     BVHNode<T>* const root;
     int nbElements = 0;
 
-     __host__ __device__ BVHNode<T>* build(Array<Point3<T>>& points){
-        Point3<T>* workingBuffer; 
-        new cudaMalloc(&workingBuffer, points.size()*sizeof(Point3<T>*));
-        BVHNode<T>* newRoot = BVH::buildRecursive(points.begin(), workingBuffer, 0, points.size());
-        cudaFree(workingBuffer);
+     __host__ __device__ BVHNode<T>* build(Array<Point3<T>>& points, ArraySegment<T>* stackMemory, Point3<T>** workingBufferPMemory){
+        Array<Point3<T>*> workingBuffer = Array<Point3<T>*>(workingBufferPMemory, points.size());
+        BVHNode<T>* newRoot = BVH::buildRecursive(points, workingBuffer, points.size(), stackMemory);
         return newRoot;
      }
 
-    __host__ __device__ BVHNode<T>* buildRecursive(Point3<T>** points, Point3<T>** workingBuffer, unsigned int size) {
-/*
-        ArraySection* sectionsToSort;
-        new cudaMalloc(&sectionsToSort, size*sizeof(ArraySection));
+    __host__ __device__ BVHNode<T>* buildRecursive(Array<Point3<T>>& points, Array<Point3<T>*> workingBuffer, unsigned int size, ArraySegment<T>* stackMemory) {
 
-        sequencesToSort[0] = {points[0], size};
-        sequencesSize = 1;
-        sequencesIndex = 0;
+        Stack<T> stack = Stack<T>{stackMemory, 0};
 
-        while(sequencesSize > 0){
-            ArraySection currentSection = sectionsToSort[sequencesIndex];
-            Bbox<T> bbox = Bbox<T>::getEnglobing(currentSection.head, currentSection.size);
-            int splitIndex = BVH::split(currentSection.head, workingBuffer, currentSection.size, bbox);
+        BVHNode<T>* root = new BVHNode<T>();
 
-            sequencesToSort[sequencesIndex] = ...
-            sequencesIndex++;
-            sequencesToSort[sequencesIndex] = ...
-            sequencesIndex++;
+        Point3<T>* begin = points.begin();
+        stack.push(ArraySegment<T>{begin, begin+size, root});
+
+        while(stack.size > 0){
+            nbElements++;
+            ArraySegment curSegment = stack.pop();
+            int curSize = curSegment.tail-curSegment.head;
 
 
+            Bbox<T>* bbox = new Bbox<T>();
+            bbox->setEnglobing(curSegment.head, curSize);
+            curSegment.node->bbox = bbox;
 
-            BVHNode<T>* head = 
+            if(curSize < 10){
+                curSegment.node->left  = nullptr;
+                curSegment.node->right = nullptr;
+                curSegment.node->elements = new Array<Point3<T>>(curSegment.head, curSize);
+            }else{
+                int splitIndex = BVH::split(curSegment.head, workingBuffer, curSize, *bbox);
+
+                curSegment.node->left  = new BVHNode<T>();
+                curSegment.node->right = new BVHNode<T>();
+                curSegment.node->elements = nullptr;
+
+                stack.push(ArraySegment<T>{curSegment.head, &curSegment.head[splitIndex], curSegment.node->left});
+                stack.push(ArraySegment<T>{&curSegment.head[splitIndex], curSegment.tail, curSegment.node->right});
+            }
         }
-
         
-
-
-        nbElements++;
-
-    
-
-        if(points.size() < 5){
-            return new BVHNode<T>{bbox, nullptr, nullptr, &points};
-        }
-
-        int nbLeft = 0;
-        int nbRight = 0;
-        BVH::split(points, bbox, workingBuffer, nbLeft, nbRight);
-
-
-        Array<Point3<T>> left  = Array<Point3<T>>(&leftVector[0],  leftVector.size());
-        Array<Point3<T>> right = Array<Point3<T>>(&rightVector[0], rightVector.size());
-
-        return new BVHNode<T>{bbox, BVH::buildRecursive(left, workingBuffer), BVH::buildRecursive(right, workingBuffer), nullptr};*/
+        return root;
     }
 
-    __host__ __device__ int split(Point3<T>** points, Point3<T>** workingBuffer, unsigned int size, const Bbox<T>& bbox) const {
+    __host__ __device__ int split(Point3<T>* points, Array<Point3<T>*> workingBuffer, unsigned int size, const Bbox<T>& bbox) const {
         const T dx = bbox.getEdgeLength('X');
         const T dy = bbox.getEdgeLength('Y');
         const T dz = bbox.getEdgeLength('Z');
@@ -99,36 +101,36 @@ private:
         int nbRight = 0;
 
         for(int i=0; i<size; i++){
-            const Point3<T>* const point = points[i];
+            Point3<T>* const point = &points[i];
             if(dx>=dy && dx>=dz){
-                if(point.x < center.x){
+                if(point->x < center.x){
                     workingBuffer[nbLeft] = point;
                     nbLeft++;
                 }else{
-                    workingBuffer[size-nbRight] = point;
+                    workingBuffer[size-nbRight-1] = point;
                     nbRight++;
                 }
             }else if(dy>=dx && dy>=dz){
-                if(point.y < center.y){
+                if(point->y < center.y){
                     workingBuffer[nbLeft] = point;
                     nbLeft++;
                 }else{
-                    workingBuffer[size-nbRight] = point;
+                    workingBuffer[size-nbRight-1] = point;
                     nbRight++;
                 }
             }else{
-                if(point.z < center.z){
+                if(point->z < center.z){
                     workingBuffer[nbLeft] = point;
                     nbLeft++;
                 }else{
-                    workingBuffer[size-nbRight] = point;
+                    workingBuffer[size-nbRight-1] = point;
                     nbRight++;
                 }
             }
         }
-        Point3<T>* tmp = *workingBuffer;
-        *workingBuffer = *points;
-        *points = tmp;
+        for(int i=0; i<size; i++){
+            points[i] = *workingBuffer[i];
+        }
         return nbLeft;
     }
 
@@ -172,7 +174,7 @@ private:
             BVHNode<T>* currentNode = buffer[nbElemInBuffer-1];
             nbElemInBuffer--;
 
-            if(currentNode != nullptr && currentNode->bbox.intersects(ray)){
+            if(currentNode != nullptr && currentNode->bbox->intersects(ray)){
                 return true;
                 if(currentNode->elements != nullptr){
                     return true; // TODO Handle this case

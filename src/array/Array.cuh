@@ -6,8 +6,8 @@ template<typename T>
 class Array{
 public:
 
-    __host__ __device__ Array(T* data, std::size_t size): data(data), dataSize(size){};
-    __host__ __device__ std::size_t size() const {return dataSize;};
+    __host__ __device__ Array(T* data, unsigned int size): data(data), dataSize(size){};
+    __host__ __device__ unsigned int size() const {return dataSize;};
 
     __host__ __device__ T& operator[](int i) {return data[i];}
 
@@ -15,8 +15,8 @@ public:
     __host__ __device__ T* end()   const {return &data[dataSize];}
 
 private:
-    const std::size_t dataSize;
     T* const data;
+    const unsigned int dataSize;
 };
 
 /*

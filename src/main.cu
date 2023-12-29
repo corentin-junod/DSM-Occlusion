@@ -12,8 +12,8 @@
 #include "primitives/Ray.cuh"
 
 __global__  
-void buildBVH(BVH<float>** bvh, Array<Point3<float>>& pointsArray){
-    *bvh = new BVH<float>(pointsArray);
+void buildBVH(BVH<float>** bvh, Array<Point3<float>>& pointsArray, ArraySegment<float>* stackMemory, Point3<float>** workingBufferPMemory){
+    *bvh = new BVH<float>(pointsArray, stackMemory, workingBufferPMemory);
 }
 
 __global__ 
@@ -86,8 +86,18 @@ int main(){
 
     // Build BVH
     std::cout << "Building BVH...\n";
-    BVH<float>* bvh;
-    buildBVH<<<1,1>>>(&bvh, *pointsArray);
+    BVH<float>** bvh;
+    checkError(cudaMallocManaged(&bvh, sizeof(void*)));
+
+    ArraySegment<float>* stackMemory;
+    checkError(cudaMallocManaged(&stackMemory, nbPixels*sizeof(ArraySegment<float>)));
+
+    Point3<float>** workingBufferPMemory;
+    checkError(cudaMallocManaged(&workingBufferPMemory, nbPixels*sizeof(Point3<float>*)));
+
+    buildBVH<<<1,1>>>(bvh, *pointsArray, stackMemory, workingBufferPMemory);
+    checkError(cudaGetLastError());
+    checkError(cudaDeviceSynchronize());
     std::cout << "BVH built\n";
 
     // Trace
@@ -132,7 +142,7 @@ int main(){
     }
 */
 
-    const dim3 threads(8,8);
+   /* const dim3 threads(8,8);
     const dim3 blocks(raster.getWidth()/threads.x+1, raster.getHeight()/threads.y+1);
     curandState* randomState;
     checkError(cudaMalloc((void **)& randomState, nbPixels*sizeof(curandState)));
@@ -142,7 +152,7 @@ int main(){
     trace<<<blocks, threads>>>(
         data, *pointsArray, raster.getWidth(), raster.getHeight(), bvh, NB_RAY_PER_POINT, randomState);
     checkError(cudaGetLastError());
-    checkError(cudaDeviceSynchronize());
+    checkError(cudaDeviceSynchronize());*/
 
 
     //auto t3 = std::chrono::high_resolution_clock::now();
@@ -156,14 +166,6 @@ int main(){
 
 
     std::cout << "Trace finished...\n";
-
-   
-    /*const dim3 THREADS(8,8);
-    const dim3 blocks(raster.getWidth()/THREADS.x+1, raster.getHeight()/THREADS.y+1);
-    render<<<blocks, THREADS>>>(data, raster.getWidth(), raster.getHeight());*/
-
-    checkError(cudaGetLastError());
-    checkError(cudaDeviceSynchronize());
 
     raster.writeData(data);
 
