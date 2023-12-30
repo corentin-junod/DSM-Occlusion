@@ -1,5 +1,6 @@
 #include <cstddef>
 #include <iostream>
+#include <cmath>
 
 #include <chrono>
 
@@ -29,28 +30,33 @@ void initRender(int maxX, int maxY, curandState* randomState) {
    curand_init(1423, index, 0, &randomState[index]);
 }
 
+
 __global__
-void trace(float* data, Array<Point3<float>>& pointsArray, int maxX, int maxY, BVH<float>* bvh, int raysPerPoint, curandState* randomState, BVHNode<float>** traceBuffer){
+void trace(float* data, Point3<float>* points, int maxX, int maxY, BVH<float>* bvh, int raysPerPoint, curandState* randomState, BVHNode<float>** traceBuffer, int traceBufferSize){
     const int x = threadIdx.x + blockIdx.x * blockDim.x;
     const int y = threadIdx.y + blockIdx.y * blockDim.y;
     if(x>=maxX || y>=maxY) return;
     const int index = y*maxX + x;
 
-    Point3<float> origin  = Point3<float>(0,0,0);
-    Vec3<float> direction = Vec3<float>(0,0,0);
-    Ray<float> ray        = Ray<float>(origin, direction);
+    curandState localRndState = randomState[index];
 
-    ray.setOrigin(pointsArray[index]);
+    Point3<float> origin  = points[index];
+    Vec3<float> direction = Vec3<float>(0,0,0);
+
+    Ray<float>* rayMem;
+    cudaMalloc(&rayMem, bvh->size()*sizeof(Ray<float>));
+    Ray<float>* ray = new(rayMem) Ray<float>(origin, direction);
+
     float result = 0;
     for(int i=0; i<raysPerPoint; i++){
-        ray.setDirection(Vec3<float>::randomInHemisphere(randomState));
-        result += bvh->isIntersecting(ray, traceBuffer)?0.0:1.0;
+        ray->setDirection(Vec3<float>::randomInHemisphere(localRndState));
+        result += bvh->isIntersecting(*ray, &traceBuffer[index*traceBufferSize])?0.0:1.0;
     }
     data[index] = result/raysPerPoint;
 }
 
 int main(){
-    const char* filename = "data/data.tif";
+    const char* filename = "data/input.tif";
     const char* outputFilename = "data/output.tif";
     Raster raster = Raster(filename, outputFilename);
 
@@ -68,20 +74,19 @@ int main(){
     Point3<float>* points;
     checkError(cudaMallocManaged(&points, nbPixels*sizeof(Point3<float>)));
 
-    void* pointsArrayLoc;
-    checkError(cudaMallocManaged(&pointsArrayLoc, sizeof(Array<Point3<float>>)));
-    Array<Point3<float>>* pointsArray = new(pointsArrayLoc) Array<Point3<float>>(points, nbPixels);
+    Point3<float>** pointsArrayContent;
+    checkError(cudaMallocManaged(&pointsArrayContent, nbPixels*sizeof(Point3<float>*)));
+
+    Point3<float>* pointsArrayMemory;
+    checkError(cudaMallocManaged(&pointsArrayMemory, sizeof(Array<Point3<float>*>)));
+    Array<Point3<float>*>* pointsArray = new (pointsArrayMemory) Array<Point3<float>*>(pointsArrayContent, nbPixels);
     
-    /*
-    Array<Point3<float>>* memLoc;
-    checkError(cudaMallocManaged(&memLoc, sizeof(Array<Point3<float>>)));
-    Array<Point3<float>>* pointsArray = new(memLoc) Array<Point3<float>>(points, nbPixels);
-    */
 
     for(int y=0; y<raster.getHeight(); y++){
         for(int x=0; x<raster.getWidth(); x++){
             const int index = y*raster.getWidth()+x;
-            (*pointsArray)[index] = Point3<float>(x,y,data[index]);
+            points[index] = Point3<float>(x,y,data[index]);
+            (*pointsArray)[index] = &(points[index]);
         }
     }
 
@@ -103,10 +108,14 @@ int main(){
     Array<Point3<float>>* elementsMemory;
     checkError(cudaMallocManaged(&elementsMemory, (int)2*nbPixels*sizeof(Array<Point3<float>>)));
 
-    BVH<float>* bvh = new BVH<float>(*pointsArray, stackMemory, workingBufferPMemory, BVHNodeMemory, bboxMemory, elementsMemory);
-    BVH<float>* bvhCuda;
-    checkError(cudaMallocManaged(&bvhCuda, sizeof(BVH<float>)));
-    cudaMemcpy(bvhCuda, bvh, sizeof(BVH<float>), cudaMemcpyHostToDevice);
+
+    Array<Point3<float>*>* workingBuffer;
+    checkError(cudaMallocManaged(&workingBuffer, sizeof(Array<Point3<float>*>)));
+    workingBuffer = new (workingBuffer) Array<Point3<float>*>(workingBufferPMemory, pointsArray->size());
+
+    BVH<float>* bvh;
+    checkError(cudaMallocManaged(&bvh, sizeof(BVH<float>)));
+    bvh = new (bvh) BVH<float>(*pointsArray, stackMemory, *workingBuffer, BVHNodeMemory, bboxMemory, elementsMemory);
 
     //BVH<float>* bvh;
     //buildBVH<<<1,1>>>(&bvh, *pointsArray, stackMemory, workingBufferPMemory, BVHNodeMemory, bboxMemory, elementsMemory);
@@ -116,41 +125,41 @@ int main(){
     std::cout << "BVH built\n";
 
     // Trace
-    constexpr unsigned int RAYS_PER_POINT = 10;
+    constexpr unsigned int RAYS_PER_POINT = 15;
 
     std::cout << "Start tracing...\n";
 
 
     const dim3 threads(8,8);
     const dim3 blocks(raster.getWidth()/threads.x+1, raster.getHeight()/threads.y+1);
+
+    BVHNode<float>** traceBuffer;
+    checkError(cudaMallocManaged(&traceBuffer, nbPixels*std::log2(bvh->size())*sizeof(BVHNode<float>*)));
     
     curandState* randomState;
     checkError(cudaMallocManaged((void **)& randomState, nbPixels*sizeof(curandState)));
     
-    BVHNode<float>** traceBuffer;
-    checkError(cudaMallocManaged(&traceBuffer, bvhCuda->size()*sizeof(BVHNode<float>*)));
-    
     initRender<<<blocks, threads>>>(raster.getWidth(), raster.getHeight(), randomState);
- /*   
     checkError(cudaGetLastError());
     checkError(cudaDeviceSynchronize());
-    trace<<<blocks, threads>>>(
-        data, *pointsArray, raster.getWidth(), raster.getHeight(), 
-        bvhCuda, RAYS_PER_POINT, randomState, traceBuffer);
-    checkError(cudaGetLastError());
-    checkError(cudaDeviceSynchronize());
-*/
 
+    trace<<<blocks, threads>>>(
+        data, points, raster.getWidth(), raster.getHeight(), 
+        bvh, RAYS_PER_POINT, randomState, traceBuffer, std::log2(bvh->size()));
+    checkError(cudaGetLastError());
+    checkError(cudaDeviceSynchronize());
+
+
+    /*BVHNode<float>** traceBuffer;
+    checkError(cudaMallocManaged(&traceBuffer, bvh->size()*sizeof(BVHNode<float>*)));
 
     for(int y=0; y<raster.getHeight(); y++){
         for(int x=0; x<raster.getWidth(); x++){
-
             const int index = y*raster.getWidth() + x;
 
-            Point3<float> origin  = (*pointsArray)[index];
+            Point3<float> origin  = points[index];
             Vec3<float> direction = Vec3<float>(0,0,0);
             Ray<float> ray        = Ray<float>(origin, direction);
-            
             float result = 0;
             for(int i=0; i<RAYS_PER_POINT; i++){
                 ray.setDirection(Vec3<float>::randomInHemisphere());
@@ -158,8 +167,7 @@ int main(){
             }
             data[index] = result/RAYS_PER_POINT;
         }
-    }
-
+    }*/
 
 
     std::cout << "Tracing finished...\n";
