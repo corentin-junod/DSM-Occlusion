@@ -11,10 +11,14 @@
 #include "primitives/Point3.cuh"
 #include "primitives/Ray.cuh"
 
+/*
 __global__  
-void buildBVH(BVH<float>** bvh, Array<Point3<float>>& pointsArray, ArraySegment<float>* stackMemory, Point3<float>** workingBufferPMemory){
-    *bvh = new BVH<float>(pointsArray, stackMemory, workingBufferPMemory);
+void buildBVH(
+        BVH<float>** bvh, Array<Point3<float>>& pointsArray, ArraySegment<float>* stackMemory, 
+        Point3<float>** workingBufferPMemory, BVHNode<float>* BVHNodeMemory, Bbox<float>* bboxMemory, Array<Point3<float>>* elementsMemory){
+    *bvh = new BVH<float>(pointsArray, stackMemory, workingBufferPMemory, BVHNodeMemory, bboxMemory, elementsMemory);
 }
+*/
 
 __global__ 
 void initRender(int maxX, int maxY, curandState* randomState) {
@@ -26,26 +30,23 @@ void initRender(int maxX, int maxY, curandState* randomState) {
 }
 
 __global__
-void trace(float* data, Array<Point3<float>>& pointsArray, int maxX, int maxY, BVH<float>* bvh, int rayPerPoint, curandState* randomState){
+void trace(float* data, Array<Point3<float>>& pointsArray, int maxX, int maxY, BVH<float>* bvh, int raysPerPoint, curandState* randomState, BVHNode<float>** traceBuffer){
     const int x = threadIdx.x + blockIdx.x * blockDim.x;
     const int y = threadIdx.y + blockIdx.y * blockDim.y;
     if(x>=maxX || y>=maxY) return;
     const int index = y*maxX + x;
 
-    Point3<float> origin = Point3<float>(0,0,0);
+    Point3<float> origin  = Point3<float>(0,0,0);
     Vec3<float> direction = Vec3<float>(0,0,0);
-    Ray<float> ray = Ray<float>(origin, direction);
-
-    BVHNode<float>* buffer;
-    cudaMalloc(&buffer, bvh->size()*sizeof(BVHNode<float>));
+    Ray<float> ray        = Ray<float>(origin, direction);
 
     ray.setOrigin(pointsArray[index]);
     float result = 0;
-    for(int i=0; i<rayPerPoint; i++){
+    for(int i=0; i<raysPerPoint; i++){
         ray.setDirection(Vec3<float>::randomInHemisphere(randomState));
-        result += bvh->isIntersectingIterGPU(ray, &buffer)?0.0:1.0;
+        result += bvh->isIntersecting(ray, traceBuffer)?0.0:1.0;
     }
-    data[index] = result/rayPerPoint;
+    data[index] = result/raysPerPoint;
 }
 
 int main(){
@@ -86,8 +87,6 @@ int main(){
 
     // Build BVH
     std::cout << "Building BVH...\n";
-    BVH<float>** bvh;
-    checkError(cudaMallocManaged(&bvh, sizeof(void*)));
 
     ArraySegment<float>* stackMemory;
     checkError(cudaMallocManaged(&stackMemory, nbPixels*sizeof(ArraySegment<float>)));
@@ -95,77 +94,75 @@ int main(){
     Point3<float>** workingBufferPMemory;
     checkError(cudaMallocManaged(&workingBufferPMemory, nbPixels*sizeof(Point3<float>*)));
 
-    buildBVH<<<1,1>>>(bvh, *pointsArray, stackMemory, workingBufferPMemory);
+    BVHNode<float>* BVHNodeMemory;
+    checkError(cudaMallocManaged(&BVHNodeMemory, 2*nbPixels*sizeof(BVHNode<float>)));
+
+    Bbox<float>* bboxMemory;
+    checkError(cudaMallocManaged(&bboxMemory, (int)2*nbPixels*sizeof(Bbox<float>)));
+
+    Array<Point3<float>>* elementsMemory;
+    checkError(cudaMallocManaged(&elementsMemory, (int)2*nbPixels*sizeof(Array<Point3<float>>)));
+
+    BVH<float>* bvh = new BVH<float>(*pointsArray, stackMemory, workingBufferPMemory, BVHNodeMemory, bboxMemory, elementsMemory);
+    BVH<float>* bvhCuda;
+    checkError(cudaMallocManaged(&bvhCuda, sizeof(BVH<float>)));
+    cudaMemcpy(bvhCuda, bvh, sizeof(BVH<float>), cudaMemcpyHostToDevice);
+
+    //BVH<float>* bvh;
+    //buildBVH<<<1,1>>>(&bvh, *pointsArray, stackMemory, workingBufferPMemory, BVHNodeMemory, bboxMemory, elementsMemory);
+    
     checkError(cudaGetLastError());
     checkError(cudaDeviceSynchronize());
     std::cout << "BVH built\n";
 
     // Trace
-    constexpr unsigned int NB_RAY_PER_POINT = 10;
+    constexpr unsigned int RAYS_PER_POINT = 10;
 
     std::cout << "Start tracing...\n";
-    //curandState randState = curandState();
-    //curand_init(4132, 0, 0, &randState);
 
-    //auto t1 = std::chrono::high_resolution_clock::now();
 
-    /*std::vector<BVHNode<float>*> toCheck = std::vector<BVHNode<float>*>();
-    toCheck.reserve(bvh.size());
-
-    Point3<float> origin = Point3<float>(0,0,0);
-    Vec3<float> direction = Vec3<float>(0,0,0);
-    Ray<float> ray = Ray<float>(origin, direction);
-    for(std::size_t i=0; i<pointsArray.size(); i++){
-        ray.setOrigin(pointsArray[i]);
-        float result = 0;
-        for(std::size_t j=0; j<NB_RAY_PER_POINT; j++){
-            ray.setDirection(Vec3<float>::randomInHemisphere());
-            result += bvh.isIntersectingIter(ray, toCheck)?0.0:1.0;
-        }
-        data[i] = result/NB_RAY_PER_POINT;
-    }*/
-
-    //auto t2 = std::chrono::high_resolution_clock::now();
-
-/*
-    Point3<float> origin = Point3<float>(0,0,0);
-    Vec3<float> direction = Vec3<float>(0,0,0);
-    Ray<float> ray2 = Ray<float>(origin, direction);
-    for(std::size_t i=0; i<pointsArray.size(); i++){
-        ray2.setOrigin(pointsArray[i]);
-        float result = 0;
-        for(std::size_t j=0; j<NB_RAY_PER_POINT; j++){
-            ray2.setDirection(Vec3<float>::randomInHemisphere());
-            result += bvh.isIntersectingRec(ray2)?0.0:1.0;
-        }
-        data[i] = result/NB_RAY_PER_POINT;
-    }
-*/
-
-   /* const dim3 threads(8,8);
+    const dim3 threads(8,8);
     const dim3 blocks(raster.getWidth()/threads.x+1, raster.getHeight()/threads.y+1);
+    
     curandState* randomState;
-    checkError(cudaMalloc((void **)& randomState, nbPixels*sizeof(curandState)));
+    checkError(cudaMallocManaged((void **)& randomState, nbPixels*sizeof(curandState)));
+    
+    BVHNode<float>** traceBuffer;
+    checkError(cudaMallocManaged(&traceBuffer, bvhCuda->size()*sizeof(BVHNode<float>*)));
+    
     initRender<<<blocks, threads>>>(raster.getWidth(), raster.getHeight(), randomState);
+ /*   
     checkError(cudaGetLastError());
     checkError(cudaDeviceSynchronize());
     trace<<<blocks, threads>>>(
-        data, *pointsArray, raster.getWidth(), raster.getHeight(), bvh, NB_RAY_PER_POINT, randomState);
+        data, *pointsArray, raster.getWidth(), raster.getHeight(), 
+        bvhCuda, RAYS_PER_POINT, randomState, traceBuffer);
     checkError(cudaGetLastError());
-    checkError(cudaDeviceSynchronize());*/
+    checkError(cudaDeviceSynchronize());
+*/
 
 
-    //auto t3 = std::chrono::high_resolution_clock::now();
+    for(int y=0; y<raster.getHeight(); y++){
+        for(int x=0; x<raster.getWidth(); x++){
 
-    /*std::chrono::duration<double, std::milli> t2t1 = t2 - t1;
-    std::chrono::duration<double, std::milli> t3t2 = t3 - t2;
+            const int index = y*raster.getWidth() + x;
 
-    std::cout << t2t1.count() << "\n";
-    std::cout << t3t2.count() << "\n";*/
+            Point3<float> origin  = (*pointsArray)[index];
+            Vec3<float> direction = Vec3<float>(0,0,0);
+            Ray<float> ray        = Ray<float>(origin, direction);
+            
+            float result = 0;
+            for(int i=0; i<RAYS_PER_POINT; i++){
+                ray.setDirection(Vec3<float>::randomInHemisphere());
+                result += bvh->isIntersecting(ray, traceBuffer)?0.0:1.0;
+            }
+            data[index] = result/RAYS_PER_POINT;
+        }
+    }
 
 
 
-    std::cout << "Trace finished...\n";
+    std::cout << "Tracing finished...\n";
 
     raster.writeData(data);
 

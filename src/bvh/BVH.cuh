@@ -2,6 +2,7 @@
 #include "../primitives/Ray.cuh"
 #include "../array/Array.cuh"
 
+#include <exception>
 #include <iostream>
 
 template<typename T>
@@ -34,30 +35,55 @@ template<typename T>
 class BVH{
 
 public:
-    __host__ __device__ BVH(Array<Point3<T>>& points, ArraySegment<T>* stackMemory, Point3<T>** workingBufferPMemory) : root(BVH::build(points, stackMemory, workingBufferPMemory)){}
+    __host__ __device__ BVH(
+        Array<Point3<T>>& points, 
+        ArraySegment<T>* stackMemory, 
+        Point3<T>** workingBufferPMemory, 
+        BVHNode<T>* BVHNodeMemory, 
+        Bbox<T>* bboxMemory, 
+        Array<Point3<T>>* elementsMemory){
+            Array<Point3<T>*> workingBuffer = Array<Point3<T>*>(workingBufferPMemory, points.size());
+            root = BVH::build(points, workingBuffer, points.size(), stackMemory,  BVHNodeMemory, bboxMemory, elementsMemory);
+    }
+    
+    
     __host__ __device__ int size() const {return nbElements;}
     __host__ __device__ BVHNode<T>* getRoot() const {return root;}
 
-    //__host__ __device__ bool isIntersectingIter(   Ray<T>& ray, std::vector<BVHNode<T>*>& buffer) const { return BVH<T>::isIntersectingIterate(ray, root, buffer);}
-             __device__ bool isIntersectingIterGPU(Ray<T>& ray, BVHNode<float>** buffer) const { return BVH<T>::isIntersectingIterateGPU(ray, root, buffer);}
     __host__ __device__ bool isIntersectingRec(    Ray<T>& ray) const { return BVH<T>::isIntersectingRecursive(ray, root);}
+
+    __host__ __device__ bool isIntersecting(Ray<T>& ray, BVHNode<float>** buffer) const { 
+        unsigned int bufferSize = 0;
+        buffer[bufferSize++] = root;
+        
+        while(bufferSize > 0){
+            BVHNode<T>* node = buffer[--bufferSize];
+
+            if(node != nullptr && node->bbox->intersects(ray)){
+                if(node->elements != nullptr){
+                    return true; // TODO Handle this case
+                }
+                buffer[bufferSize++] = node->left;
+                buffer[bufferSize++] = node->right;
+            }
+        }
+        return false;
+    }
 
 private:
 
-    BVHNode<T>* const root;
+    BVHNode<T>* root;
     int nbElements = 0;
 
-     __host__ __device__ BVHNode<T>* build(Array<Point3<T>>& points, ArraySegment<T>* stackMemory, Point3<T>** workingBufferPMemory){
-        Array<Point3<T>*> workingBuffer = Array<Point3<T>*>(workingBufferPMemory, points.size());
-        BVHNode<T>* newRoot = BVH::buildRecursive(points, workingBuffer, points.size(), stackMemory);
-        return newRoot;
-     }
+    __host__ __device__ BVHNode<T>* build(Array<Point3<T>>& points, Array<Point3<T>*> workingBuffer, unsigned int size, ArraySegment<T>* stackMemory, BVHNode<T>* BVHNodeMemory, Bbox<T>* bboxMemory, Array<Point3<T>>* elementsMemory) {
 
-    __host__ __device__ BVHNode<T>* buildRecursive(Array<Point3<T>>& points, Array<Point3<T>*> workingBuffer, unsigned int size, ArraySegment<T>* stackMemory) {
+        int BVHNodeCounter = 0;
+        int bboxCounter = 0;
+        int elementsCounter = 0;
 
         Stack<T> stack = Stack<T>{stackMemory, 0};
 
-        BVHNode<T>* root = new BVHNode<T>();
+        BVHNode<T>* root = new (&BVHNodeMemory[BVHNodeCounter++]) BVHNode<T>();
 
         Point3<T>* begin = points.begin();
         stack.push(ArraySegment<T>{begin, begin+size, root});
@@ -68,20 +94,18 @@ private:
             int curSize = curSegment.tail-curSegment.head;
 
 
-            Bbox<T>* bbox = new Bbox<T>();
+            Bbox<T>* bbox = new (&BVHNodeMemory[bboxCounter++]) Bbox<T>();
+
             bbox->setEnglobing(curSegment.head, curSize);
             curSegment.node->bbox = bbox;
 
-            if(curSize < 10){
-                curSegment.node->left  = nullptr;
-                curSegment.node->right = nullptr;
-                curSegment.node->elements = new Array<Point3<T>>(curSegment.head, curSize);
+            if(curSize < 5){
+                curSegment.node->elements = new (&elementsMemory[elementsCounter++]) Array<Point3<T>>(curSegment.head, curSize);
             }else{
                 int splitIndex = BVH::split(curSegment.head, workingBuffer, curSize, *bbox);
 
-                curSegment.node->left  = new BVHNode<T>();
-                curSegment.node->right = new BVHNode<T>();
-                curSegment.node->elements = nullptr;
+                curSegment.node->left  = new (&BVHNodeMemory[BVHNodeCounter++]) BVHNode<T>();
+                curSegment.node->right = new (&BVHNodeMemory[BVHNodeCounter++]) BVHNode<T>();
 
                 stack.push(ArraySegment<T>{curSegment.head, &curSegment.head[splitIndex], curSegment.node->left});
                 stack.push(ArraySegment<T>{&curSegment.head[splitIndex], curSegment.tail, curSegment.node->right});
@@ -131,6 +155,7 @@ private:
         for(int i=0; i<size; i++){
             points[i] = *workingBuffer[i];
         }
+
         return nbLeft;
     }
 
@@ -141,51 +166,6 @@ private:
             }
             return BVH<T>::isIntersectingRecursive(ray, node->left, depth+1) || BVH<T>::isIntersectingRecursive(ray, node->right, depth+1);
         }
-        return false;
-    }
-
-    /*__host__ bool isIntersectingIterate(const Ray<T>& ray, BVHNode<T>* const node, std::vector<BVHNode<T>*>& buffer) const {
-        buffer.clear();
-        buffer.push_back(node);
-
-        while(buffer.size() > 0){
-
-            BVHNode<T>* currentNode = buffer.back();
-            buffer.pop_back();
-
-            if(currentNode != nullptr && currentNode->bbox.intersects(ray)){
-                if(currentNode->elements != nullptr){
-                    return true; // TODO Handle this case
-                }
-                buffer.push_back(currentNode->left);
-                buffer.push_back(currentNode->right);
-            }
-        }
-
-        return false;
-    }*/
-
-    __device__ bool isIntersectingIterateGPU(const Ray<T>& ray, BVHNode<T>* const node, BVHNode<float>** const buffer) const {
-        buffer[0] = node;
-        unsigned int nbElemInBuffer = 1;
-
-        while(nbElemInBuffer > 0){
-
-            BVHNode<T>* currentNode = buffer[nbElemInBuffer-1];
-            nbElemInBuffer--;
-
-            if(currentNode != nullptr && currentNode->bbox->intersects(ray)){
-                return true;
-                if(currentNode->elements != nullptr){
-                    return true; // TODO Handle this case
-                }
-                buffer[nbElemInBuffer] = currentNode->left;
-                nbElemInBuffer++;
-                buffer[nbElemInBuffer] = currentNode->right;
-                nbElemInBuffer++;
-            }
-        }
-
         return false;
     }
 };

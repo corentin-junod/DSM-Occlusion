@@ -19,8 +19,7 @@ public:
             y = curand_uniform(state) * 2 - 1;
             z = curand_uniform(state) * 2 - 1; 
         }while(x*x + y*y + z*z > 1);
-        if(z < 0) z *= -1;
-        return Vec3(x,y,z);
+        return Vec3(x,y,z<0?-z:z);
     };
 
     __host__ static Vec3<T> randomInHemisphere(){

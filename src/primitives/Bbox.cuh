@@ -20,8 +20,8 @@ public:
         center(Point3<T>((maxX+minX)/2, (maxY+minY)/2, (maxZ+minZ)/2)){};
 
     __host__ __device__ void setEnglobing(Point3<T>* points, int size){
-        T minX = MAX_INT, minY = MAX_INT, minZ = MAX_INT;
-        T maxX = MIN_INT, maxY = MIN_INT, maxZ = MIN_INT;
+        minX = MAX_INT, minY = MAX_INT, minZ = MAX_INT;
+        maxX = MIN_INT, maxY = MIN_INT, maxZ = MIN_INT;
         for(int i=0; i<size; i++){
             const Point3<T>& point = points[i];
             if(point.x < minX) minX = point.x;
@@ -94,11 +94,11 @@ public:
     }
 
 private:
-    const T minX;
-    const T maxX;
-    const T minY;
-    const T maxY;
-    const T minZ;
-    const T maxZ;
+    T minX;
+    T maxX;
+    T minY;
+    T maxY;
+    T minZ;
+    T maxZ;
     Point3<T> center;
 };
