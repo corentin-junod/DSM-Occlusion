@@ -1,6 +1,9 @@
+#pragma once
+
 #include "../primitives/Bbox.cuh"
 #include "../primitives/Ray.cuh"
 #include "../array/Array.cuh"
+#include <ostream>
 
 
 template<typename T>
@@ -43,29 +46,29 @@ public:
             root = BVH::build(points, workingBuffer, stackMemory,  BVHNodeMemory, bboxMemory, elementsMemory);
     }
     
-    
     __host__ __device__ int size() const {return nbElements;}
 
-    __host__ __device__ bool isIntersectingRec(Ray<T>& ray) const { return BVH<T>::isIntersectingRecursive(ray, root);}
-
-    __host__ __device__ bool isIntersecting(Ray<T>& ray, BVHNode<T>** buffer) const { 
+    __host__ __device__ float getLighting(const Ray<T>& ray, BVHNode<T>** buffer) const { 
+        ray.getDirection().normalize();
         unsigned int bufferSize = 0;
         buffer[bufferSize++] = root;
 
         while(bufferSize > 0){
-            
             BVHNode<T>* node = buffer[--bufferSize];
-                    
             if(node != nullptr && node->bbox->intersects(ray)){
                 if(node->elements != nullptr){
-                    return true; // TODO Handle this case
+                    for(const Point3<T>& point : *node->elements){
+                        if(point != ray.getOrigin() && BVH::intersectSphere(point, ray, 0.25)){
+                            //std::cout << ray.getOrigin() << " " << ray.getDirection() << " " << point << '\n';
+                            return 0;
+                        }
+                    }
                 }
                 buffer[bufferSize++] = node->left;
                 buffer[bufferSize++] = node->right;
             }
-          
         }
-        return false;
+        return 1;
     }
 
 private:
@@ -73,7 +76,69 @@ private:
     BVHNode<T>* root;
     int nbElements = 0;
 
+    __host__ __device__ bool intersectBox(const Point3<T>& center, const Ray<T>& ray, const float margin) const {
+        const Vec3<T>& rayDir = ray.getDirection();
+        const Point3<T>& rayOrigin = ray.getOrigin();
+
+        float min, max;
+
+        const float xInverse = 1 / rayDir.x;
+        const float tNearX = (center.x - margin - rayOrigin.x) * xInverse;
+        const float tFarX  = (center.x + margin - rayOrigin.x) * xInverse;
+
+        if(tNearX > tFarX){
+            min = tFarX;
+            max = tNearX;
+        }else{
+            min = tNearX;
+            max = tFarX;
+        }
+        
+        const float yInverse = 1 / rayDir.y;
+        const float tNearY = (center.y - margin - rayOrigin.y) * yInverse;
+        const float tFarY  = (center.y + margin - rayOrigin.y) * yInverse;
+
+        if(tNearY > tFarY){
+            min = min < tFarY  ? tFarY  : min;
+            max = max > tNearY ? tNearY : max;
+        }else{
+            min = min < tNearY ? tNearY : min;
+            max = max > tFarY  ? tFarY  : max;
+        }
+
+        if(max < min && min > 0) return false;
+
+        const float zInverse = 1 / rayDir.z;
+        const float tNearZ = (center.z - margin - rayOrigin.z) * zInverse;
+        const float tFarZ  = (center.z + margin - rayOrigin.z) * zInverse;
+
+       if(tNearZ > tFarZ){
+            min = min < tFarZ  ? tFarZ  : min;
+            max = max > tNearZ ? tNearZ : max;
+        }else{
+            min = min < tNearZ ? tNearZ : min;
+            max = max > tFarZ  ? tFarZ  : max;
+        }
+
+        return min < max && min > 0;
+    }
+
+    __host__ __device__ bool intersectSphere(const Point3<T>& center, const Ray<T>& ray, const float radius) const {
+        const T radius_squared = radius*radius;
+        const Vec3<T> d_co = ray.getOrigin() - center;
+        const T d_co_norm_sqr = d_co.getNormSquared();
+        if(d_co_norm_sqr <= radius_squared) return false;
+        const T tmp = ray.getDirection().dot(d_co);
+        const T delta = tmp*tmp - (d_co_norm_sqr - radius_squared);
+        const T t = -tmp-sqrt(delta);
+        //if(delta > 0) std::cout << "delta : " << delta << '\n';
+        return delta >= 0 && t > 0;
+    }
+
     __host__ __device__ BVHNode<T>* build(Array<Point3<T>*>& points, Array<Point3<T>*> workingBuffer, ArraySegment<T>* stackMemory, BVHNode<T>* BVHNodeMemory, Bbox<T>* bboxMemory, Array<Point3<T>>* elementsMemory) {
+
+        const float margin = 0.25;
+        const unsigned int bboxMaxSize = 3;
 
         int BVHNodeCounter = 0;
         int bboxCounter = 0;
@@ -93,12 +158,10 @@ private:
             const unsigned int curSize = curSegment.tail-curSegment.head;
 
             Bbox<T>* bbox = new (&bboxMemory[bboxCounter++]) Bbox<T>();
-            bbox->setEnglobing(curSegment.head, curSize);
+            bbox->setEnglobing(curSegment.head, curSize, margin);
             curSegment.node->bbox = bbox;
 
-            //std::cout << *bbox << **curSegment.head <<'\n';
-
-            if(curSize < 5){
+            if(curSize < bboxMaxSize){
                 curSegment.node->elements = new (&elementsMemory[elementsCounter++]) Array<Point3<T>>(*curSegment.head, curSize);
             }else{
 
@@ -155,13 +218,4 @@ private:
         return nbLeft;
     }
 
-    __host__ __device__ bool isIntersectingRecursive(const Ray<T>& ray, const BVHNode<T>* const node, int depth=0) const {
-        if(depth < 0 && node != nullptr && node->bbox.intersects(ray)){
-            if(node->elements != nullptr){
-                return true; // TODO Handle this case
-            }
-            return BVH<T>::isIntersectingRecursive(ray, node->left, depth+1) || BVH<T>::isIntersectingRecursive(ray, node->right, depth+1);
-        }
-        return false;
-    }
 };

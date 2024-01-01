@@ -8,7 +8,7 @@ OBJS := $(SRCS:%=$(BUILD_DIR)/%.o)
 
 CC  := nvcc
 CXX := nvcc
-LDFLAGS += -Lusr/lib -lgdal
+LDFLAGS += -Lusr/lib -lgdal -lgomp
 
 
 $(BUILD_DIR)/$(TARGET_EXEC): $(OBJS)
@@ -27,12 +27,12 @@ $(BUILD_DIR)/%.cu.o: %.cu
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 
-release: CXXFLAGS += -O3
-release: CC       += -O3
+release: CXXFLAGS += -O3 -Xcompiler -fopenmp
+release: CC       += -O3 -Xcompiler -fopenmp
 release: build
 
-debug: CXXFLAGS += -g -G
-debug: CC       += -g -G
+debug: CXXFLAGS += -g -G -Xcompiler -fopenmp
+debug: CC       += -g -G -Xcompiler -fopenmp
 debug: build
 
 build: $(BUILD_DIR)/$(TARGET_EXEC)
