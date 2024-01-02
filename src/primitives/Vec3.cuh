@@ -3,8 +3,10 @@
 #include <curand_kernel.h>
 #include <random>
 
+#define PI 3.14159265358979323846
+
 std::default_random_engine generator;
-std::uniform_real_distribution<> rndDist = std::uniform_real_distribution<>(-1.0, 1.0);
+std::uniform_real_distribution<> rndDist = std::uniform_real_distribution<>(0, 1.0);
 
 template<typename T>
 class Vec3{
@@ -37,31 +39,31 @@ public:
         if(z<0){
             z *= -1;
         }
-        /*if( (x < 0 && (quadrant == 0 || quadrant == 3)) || (x > 0 && (quadrant == 1 || quadrant == 2)) ){
+        if( (x < 0 && (quadrant == 0 || quadrant == 3)) || (x > 0 && (quadrant == 1 || quadrant == 2)) ){
             x *= -1;
         }
         if( (y < 0 && (quadrant == 2 || quadrant == 3)) || (y > 0 && (quadrant == 0 || quadrant == 1)) ){
             y *= -1;
-        }*/
+        }
 
     };
 
-    __host__ void setRandomInHemisphere(const unsigned int quadrant){
+    __host__ float setRandomInHemisphereCosine(const float offset, const float segmentSize){
+        const T phi = 2*PI*rndDist(generator); /// segmentSize + offset;
+        const T theta = acos(sqrt(1-rndDist(generator)));
+        x   = sin(theta)*cos(phi);
+        y   = sin(theta)*sin(phi);
+        z   = cos(theta); 
+        return 1- cos(theta)/(2*PI);
+    };
+
+    __host__ float setRandomInHemisphereUniform(const float offset, const float segmentSize){
         do{
-            x = rndDist(generator);
-            y = rndDist(generator);
+            x = rndDist(generator) * 2 - 1;
+            y = rndDist(generator) * 2 - 1;
             z = rndDist(generator); 
         }while(x*x + y*y + z*z > 1);
-
-        if(z<0){
-            z *= -1;
-        }
-        /*if( (x < 0 && (quadrant == 0 || quadrant == 3)) || (x > 0 && (quadrant == 1 || quadrant == 2)) ){
-            x *= -1;
-        }
-        if( (y < 0 && (quadrant == 2 || quadrant == 3)) || (y > 0 && (quadrant == 0 || quadrant == 1)) ){
-            y *= -1;
-        }*/
+        return 1/(2*PI);
     };
 
     T x, y, z;

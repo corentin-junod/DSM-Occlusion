@@ -34,10 +34,10 @@ public:
         }
         minX -= margin;
         minY -= margin;
-        minZ -= margin;
+        minZ = 0;//-= margin*2;
         maxX += margin;
         maxY += margin;
-        maxZ += margin;
+        maxZ = maxZ;
         center.x = (maxX+minX)/2;
         center.y = (maxY+minY)/2;
         center.z = (maxZ+minZ)/2;
@@ -97,7 +97,7 @@ public:
             max = max > tFarZ  ? tFarZ  : max;
         }
 
-        return min < max;
+        return min < max && max > 0;
     }
 
 private:

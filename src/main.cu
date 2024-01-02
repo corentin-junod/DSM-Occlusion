@@ -14,6 +14,8 @@
 #include "primitives/Point3.cuh"
 #include "primitives/Ray.cuh"
 
+#define PI 3.14159265358979323846
+
 __global__ 
 void initRender(int maxX, int maxY, curandState* randomState) {
    const int x = threadIdx.x + blockIdx.x * blockDim.x;
@@ -26,7 +28,7 @@ void initRender(int maxX, int maxY, curandState* randomState) {
 
 __global__
 void trace(float* data, Point3<float>* points, int maxX, int maxY, BVH<float>* bvh, const int raysPerPoint, curandState* randomState, BVHNode<float>** traceBuffer, int traceBufferSize){
-    const int x = threadIdx.x + blockIdx.x * blockDim.x;
+    /*const int x = threadIdx.x + blockIdx.x * blockDim.x;
     const int y = threadIdx.y + blockIdx.y * blockDim.y;
     if(x>=maxX || y>=maxY) return;
     const int index = y*maxX + x;
@@ -41,11 +43,11 @@ void trace(float* data, Point3<float>* points, int maxX, int maxY, BVH<float>* b
         ray.getDirection().setRandomInHemisphere(localRndState, i%4);
         result += bvh->getLighting(ray, &traceBuffer[index*traceBufferSize]);
     }
-    data[index] = result/raysPerPoint;
+    data[index] = result/raysPerPoint;*/
 }
 
 int main(){
-    const bool USE_GPU = true;
+    const bool USE_GPU = false;
     const bool PRINT_INFOS = true;
     const char* filename = "data/input.tif";
     const char* outputFilename = "data/output.tif";
@@ -118,7 +120,7 @@ int main(){
     std::cout << "BVH built\n";
 
     // Trace
-    constexpr unsigned int RAYS_PER_POINT = 40; // MUST be a multiple of 4 because of importance smapling
+    constexpr unsigned int RAYS_PER_POINT = 64;
 
     BVHNode<float>** traceBuffer;
     const int traceBufferSizePerThread = std::log2(bvh->size())+1;
@@ -148,6 +150,9 @@ int main(){
     }else{
         std::cout << "Start tracing...\n";
 
+        constexpr int NB_DIRS = 32;
+        constexpr float DIR_ANGLE = 2*PI/NB_DIRS;
+
         float progress = 0;
         float nextProgress = 0.1;
 
@@ -159,12 +164,24 @@ int main(){
                 Point3<float> origin  = points[index];
                 Vec3<float> direction = Vec3<float>(0,0,0);
                 Ray<float> ray        = Ray<float>(origin, direction);
-                float result = 0;
+
+
+                float lightSum = 0;
+                //float weightSum = 0;
                 for(int i=0; i<RAYS_PER_POINT; i++){
-                    ray.getDirection().setRandomInHemisphere(i%4);
+                    float PDF = ray.getDirection().setRandomInHemisphereCosine( DIR_ANGLE*(i%NB_DIRS) , DIR_ANGLE );
+                    lightSum += PDF*bvh->getLighting(ray, &traceBuffer[index*traceBufferSizePerThread]);
+                    //weightSum += (1-probability);
+                }
+                data[index] = lightSum/RAYS_PER_POINT;
+
+                /*float result = 0;
+                float weightSum = 0;
+                for(int i=0; i<RAYS_PER_POINT; i++){
+                    weightSum += 1/ray.getDirection().setRandomInHemisphereCosine( DIR_ANGLE*(i%NB_DIRS) , DIR_ANGLE );
                     result += bvh->getLighting(ray, &traceBuffer[index*traceBufferSizePerThread]);
                 }
-                data[index] = result/RAYS_PER_POINT;
+                data[index] = result/weightSum;*/
             }
 
             #pragma omp atomic

@@ -5,6 +5,7 @@
 #include "../array/Array.cuh"
 #include <ostream>
 
+#define TILE_SIZE 0.5 
 
 template<typename T>
 struct BVHNode{
@@ -29,7 +30,6 @@ struct Stack {
     __host__ __device__ void push(ArraySegment<T> value) {data[size++] = value;}
     __host__ __device__ ArraySegment<T> pop() {return data[--size];}
 };
-
 
 
 template<typename T>
@@ -58,8 +58,7 @@ public:
             if(node != nullptr && node->bbox->intersects(ray)){
                 if(node->elements != nullptr){
                     for(const Point3<T>& point : *node->elements){
-                        if(point != ray.getOrigin() && BVH::intersectSphere(point, ray, 0.25)){
-                            //std::cout << ray.getOrigin() << " " << ray.getDirection() << " " << point << '\n';
+                        if(point != ray.getOrigin() && BVH::intersectBox(point, ray, TILE_SIZE/2)){
                             return 0;
                         }
                     }
@@ -76,15 +75,15 @@ private:
     BVHNode<T>* root;
     int nbElements = 0;
 
-    __host__ __device__ bool intersectBox(const Point3<T>& center, const Ray<T>& ray, const float margin) const {
+    __host__ __device__ bool intersectBox(const Point3<T>& top, const Ray<T>& ray, const float margin) const {
         const Vec3<T>& rayDir = ray.getDirection();
         const Point3<T>& rayOrigin = ray.getOrigin();
 
         float min, max;
 
         const float xInverse = 1 / rayDir.x;
-        const float tNearX = (center.x - margin - rayOrigin.x) * xInverse;
-        const float tFarX  = (center.x + margin - rayOrigin.x) * xInverse;
+        const float tNearX = (top.x - margin - rayOrigin.x) * xInverse;
+        const float tFarX  = (top.x + margin - rayOrigin.x) * xInverse;
 
         if(tNearX > tFarX){
             min = tFarX;
@@ -95,8 +94,8 @@ private:
         }
         
         const float yInverse = 1 / rayDir.y;
-        const float tNearY = (center.y - margin - rayOrigin.y) * yInverse;
-        const float tFarY  = (center.y + margin - rayOrigin.y) * yInverse;
+        const float tNearY = (top.y - margin - rayOrigin.y) * yInverse;
+        const float tFarY  = (top.y + margin - rayOrigin.y) * yInverse;
 
         if(tNearY > tFarY){
             min = min < tFarY  ? tFarY  : min;
@@ -109,8 +108,8 @@ private:
         if(max < min && min > 0) return false;
 
         const float zInverse = 1 / rayDir.z;
-        const float tNearZ = (center.z - margin - rayOrigin.z) * zInverse;
-        const float tFarZ  = (center.z + margin - rayOrigin.z) * zInverse;
+        const float tNearZ = (-rayOrigin.z) * zInverse;
+        const float tFarZ  = (top.z - rayOrigin.z) * zInverse;
 
        if(tNearZ > tFarZ){
             min = min < tFarZ  ? tFarZ  : min;
@@ -123,7 +122,8 @@ private:
         return min < max && min > 0;
     }
 
-    __host__ __device__ bool intersectSphere(const Point3<T>& center, const Ray<T>& ray, const float radius) const {
+    __host__ __device__ bool intersectSphere(const Point3<T>& top, const Ray<T>& ray, const float radius) const {
+        const Point3<T> center = Point3<T>(top.x, top.y, top.z-TILE_SIZE/2);
         const T radius_squared = radius*radius;
         const Vec3<T> d_co = ray.getOrigin() - center;
         const T d_co_norm_sqr = d_co.getNormSquared();
@@ -131,14 +131,13 @@ private:
         const T tmp = ray.getDirection().dot(d_co);
         const T delta = tmp*tmp - (d_co_norm_sqr - radius_squared);
         const T t = -tmp-sqrt(delta);
-        //if(delta > 0) std::cout << "delta : " << delta << '\n';
         return delta >= 0 && t > 0;
     }
 
     __host__ __device__ BVHNode<T>* build(Array<Point3<T>*>& points, Array<Point3<T>*> workingBuffer, ArraySegment<T>* stackMemory, BVHNode<T>* BVHNodeMemory, Bbox<T>* bboxMemory, Array<Point3<T>>* elementsMemory) {
 
-        const float margin = 0.25;
-        const unsigned int bboxMaxSize = 3;
+        const float margin = TILE_SIZE/2;
+        const unsigned int bboxMaxSize = 5;
 
         int BVHNodeCounter = 0;
         int bboxCounter = 0;
@@ -189,28 +188,28 @@ private:
 
         for(int i=0; i<size; i++){
             Point3<T>* const point = points[i];
-            if(dx>=dy && dx>=dz){
+            if(dx>=dy /*&& dx>=dz*/){
                 if(point->x < center.x){
                     workingBuffer[nbLeft++] = point;
                 }else{
                     workingBuffer[size-nbRight-1] = point;
                     nbRight++;
                 }
-            }else if(dy>=dx && dy>=dz){
+            }else /*if(dy>=dx && dy>=dz)*/{
                 if(point->y < center.y){
                     workingBuffer[nbLeft++] = point;
                 }else{
                     workingBuffer[size-nbRight-1] = point;
                     nbRight++;
                 }
-            }else{
+            }/*else{
                 if(point->z < center.z){
                     workingBuffer[nbLeft++] = point;
                 }else{
                     workingBuffer[size-nbRight-1] = point;
                     nbRight++;
                 }
-            }
+            }*/
         }
         for(int i=0; i<size; i++){
             points[i] = workingBuffer[i];
