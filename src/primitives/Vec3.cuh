@@ -6,7 +6,8 @@
 #define PI 3.14159265358979323846
 
 std::default_random_engine generator;
-std::uniform_real_distribution<> rndDist = std::uniform_real_distribution<>(0, 1.0);
+std::uniform_real_distribution<> uniform0_1  = std::uniform_real_distribution<>(0, 1);
+std::uniform_real_distribution<> uniform0_05 = std::uniform_real_distribution<>(0, 0.5);
 
 template<typename T>
 class Vec3{
@@ -46,24 +47,84 @@ public:
             y *= -1;
         }
 
-    };
+    }
 
-    __host__ float setRandomInHemisphereCosine(const float offset, const float segmentSize){
-        const T phi = 2*PI*rndDist(generator); /// segmentSize + offset;
-        const T theta = acos(sqrt(1-rndDist(generator)));
+    /*__host__ float setRandomInHemisphereCosine(const float nbSegments, const float segmentNumber){
+        const T segmentSize = 2*PI/nbSegments;
+        const T phi = uniform0_1(generator) * segmentSize + segmentSize * segmentNumber;
+        const T theta = acos(sqrt(uniform0_1(generator)));
+        const T sinTheta = sin(theta);
+        const T cosTheta = cos(theta);
+        x = sinTheta*cos(phi);
+        y = sinTheta*sin(phi);
+        z = cosTheta; 
+        return cosTheta;
+    }
+
+    __host__ float setRandomInHemisphereSine(const float nbSegments, const float segmentNumber){
+        const T segmentSize = 2*PI/nbSegments;
+        const T phi = uniform0_1(generator) * segmentSize + segmentSize * segmentNumber;
+        const T theta = pow(PI*uniform0_1(generator)*3.0/4.0, 1.0/3.0); // approximation using Taylor series, very imprecise right now 
         x   = sin(theta)*cos(phi);
         y   = sin(theta)*sin(phi);
         z   = cos(theta); 
-        return 1- cos(theta)/(2*PI);
+        return sin(theta);
+    }*/
+
+    __host__ float setRandomInHemisphereImportance2(const float nbSegments, const float segmentNumber){
+        const T segmentSize = 2*PI/nbSegments;
+        const T phi = uniform0_1(generator) * segmentSize + segmentSize * segmentNumber;
+
+        T weight, theta;
+        T importanceChoice = uniform0_1(generator);
+        if(importanceChoice > 5.0/6.0){
+            theta = acos(uniform0_1(generator)/6.0 + 5.0/6.0);
+            weight = 1.0/6.0;
+        }else if(importanceChoice < 1.0/6.0){
+            theta = acos(uniform0_1(generator)/6.0);
+            weight = 1.0/6.0;
+        }else{
+            theta = acos(uniform0_1(generator)/(4.0/6.0) + 1.0/6.0);
+            weight = 4.0/6.0;
+        }
+        const T sinTheta = sin(theta);
+        const T cosTheta = cos(theta);
+        x = sinTheta*cos(phi);
+        y = sinTheta*sin(phi);
+        z = cosTheta; 
+        return weight;
     };
 
-    __host__ float setRandomInHemisphereUniform(const float offset, const float segmentSize){
-        do{
-            x = rndDist(generator) * 2 - 1;
-            y = rndDist(generator) * 2 - 1;
-            z = rndDist(generator); 
-        }while(x*x + y*y + z*z > 1);
-        return 1/(2*PI);
+    __host__ float setRandomInHemisphereImportance(const float nbSegments, const float segmentNumber){
+        const T segmentSize = 2*PI/nbSegments;
+        const T phi = uniform0_1(generator) * segmentSize + segmentSize * segmentNumber;
+
+        T weight, theta;
+        if(uniform0_1(generator) > 1.0/4.0){
+            theta = acos(uniform0_05(generator) + 0.5);
+            weight = 3.0/4.0;
+        }else{
+            theta = acos(uniform0_05(generator));
+            weight = 1.0/4.0;
+        }
+        const T sinTheta = sin(theta);
+        const T cosTheta = cos(theta);
+        x = sinTheta*cos(phi);
+        y = sinTheta*sin(phi);
+        z = cosTheta; 
+        return weight;
+    };
+
+    __host__ float setRandomInHemisphereUniform(const float nbSegments, const float segmentNumber){
+        const T segmentSize = 2*PI/nbSegments;
+        const T phi = uniform0_1(generator) * segmentSize + segmentSize * segmentNumber;
+        const T theta = acos(uniform0_1(generator));
+        const T sinTheta = sin(theta);
+        const T cosTheta = cos(theta);
+        x = sinTheta*cos(phi);
+        y = sinTheta*sin(phi);
+        z = cosTheta; 
+        return 1;
     };
 
     T x, y, z;

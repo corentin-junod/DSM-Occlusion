@@ -120,7 +120,7 @@ int main(){
     std::cout << "BVH built\n";
 
     // Trace
-    constexpr unsigned int RAYS_PER_POINT = 64;
+    constexpr unsigned int RAYS_PER_POINT = 512;
 
     BVHNode<float>** traceBuffer;
     const int traceBufferSizePerThread = std::log2(bvh->size())+1;
@@ -150,8 +150,7 @@ int main(){
     }else{
         std::cout << "Start tracing...\n";
 
-        constexpr int NB_DIRS = 32;
-        constexpr float DIR_ANGLE = 2*PI/NB_DIRS;
+        constexpr int NB_STRATIFIED_DIRS = 32;
 
         float progress = 0;
         float nextProgress = 0.1;
@@ -165,23 +164,12 @@ int main(){
                 Vec3<float> direction = Vec3<float>(0,0,0);
                 Ray<float> ray        = Ray<float>(origin, direction);
 
-
-                float lightSum = 0;
-                //float weightSum = 0;
+                float result = 0;
                 for(int i=0; i<RAYS_PER_POINT; i++){
-                    float PDF = ray.getDirection().setRandomInHemisphereCosine( DIR_ANGLE*(i%NB_DIRS) , DIR_ANGLE );
-                    lightSum += PDF*bvh->getLighting(ray, &traceBuffer[index*traceBufferSizePerThread]);
-                    //weightSum += (1-probability);
+                    float p = ray.getDirection().setRandomInHemisphereImportance2( NB_STRATIFIED_DIRS , i%NB_STRATIFIED_DIRS );
+                    result += bvh->getLighting(ray, &traceBuffer[index*traceBufferSizePerThread])/p;
                 }
-                data[index] = lightSum/RAYS_PER_POINT;
-
-                /*float result = 0;
-                float weightSum = 0;
-                for(int i=0; i<RAYS_PER_POINT; i++){
-                    weightSum += 1/ray.getDirection().setRandomInHemisphereCosine( DIR_ANGLE*(i%NB_DIRS) , DIR_ANGLE );
-                    result += bvh->getLighting(ray, &traceBuffer[index*traceBufferSizePerThread]);
-                }
-                data[index] = result/weightSum;*/
+                data[index] = result/RAYS_PER_POINT;
             }
 
             #pragma omp atomic
