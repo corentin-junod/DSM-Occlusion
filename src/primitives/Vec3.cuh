@@ -1,6 +1,7 @@
 #pragma once
 
 #include <curand_kernel.h>
+#include <iostream>
 #include <random>
 
 #define PI 3.14159265358979323846
@@ -75,6 +76,9 @@ public:
         const T segmentSize = 2*PI/nbSegments;
         const T phi = uniform0_1(generator) * segmentSize + segmentSize * segmentNumber;
 
+        //const float borderSize = 1.0/6.0;
+        //const float borderProba = 
+
         T weight, theta;
         T importanceChoice = uniform0_1(generator);
         if(importanceChoice > 5.0/6.0){
@@ -92,27 +96,30 @@ public:
         x = sinTheta*cos(phi);
         y = sinTheta*sin(phi);
         z = cosTheta; 
-        return weight;
+        return weight * sinTheta/PI ;
     };
 
     __host__ float setRandomInHemisphereImportance(const float nbSegments, const float segmentNumber){
-        const T segmentSize = 2*PI/nbSegments;
-        const T phi = uniform0_1(generator) * segmentSize + segmentSize * segmentNumber;
+        //const T segmentSize = 2*PI/nbSegments;
+        const T phi = uniform0_1(generator) * 2*PI; //* segmentSize + segmentSize * segmentNumber;
 
-        T weight, theta;
+        T p, q, theta;
         if(uniform0_1(generator) > 1.0/4.0){
-            theta = acos(uniform0_05(generator) + 0.5);
-            weight = 3.0/4.0;
+            theta = acos(uniform0_1(generator)/2.0 + 0.5);
+            p = 1.0/(2.0*PI);
+            q = 3.0/4.0;
         }else{
-            theta = acos(uniform0_05(generator));
-            weight = 1.0/4.0;
+            theta = acos(uniform0_1(generator)/2.0);
+            p = 1.0/(2.0*PI);
+            q = 1.0/4.0;
         }
         const T sinTheta = sin(theta);
         const T cosTheta = cos(theta);
         x = sinTheta*cos(phi);
         y = sinTheta*sin(phi);
         z = cosTheta; 
-        return weight;
+        
+        return p/q;
     };
 
     __host__ float setRandomInHemisphereUniform(const float nbSegments, const float segmentNumber){

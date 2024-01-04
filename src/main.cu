@@ -166,8 +166,8 @@ int main(){
 
                 float result = 0;
                 for(int i=0; i<RAYS_PER_POINT; i++){
-                    float p = ray.getDirection().setRandomInHemisphereImportance2( NB_STRATIFIED_DIRS , i%NB_STRATIFIED_DIRS );
-                    result += bvh->getLighting(ray, &traceBuffer[index*traceBufferSizePerThread])/p;
+                    float w = ray.getDirection().setRandomInHemisphereImportance( NB_STRATIFIED_DIRS , i%NB_STRATIFIED_DIRS );
+                    result += w*bvh->getLighting(ray, &traceBuffer[index*traceBufferSizePerThread]);
                 }
                 data[index] = result/RAYS_PER_POINT;
             }
@@ -175,7 +175,7 @@ int main(){
             #pragma omp atomic
             progress++;
 
-            if( ((float)progress)/raster.getHeight() >= nextProgress){
+            if(progress >= nextProgress*raster.getHeight()){
                 std::cout << "Progress " << 100*nextProgress << "%\n";
                 std::flush(std::cout);
                 nextProgress += 0.1;
