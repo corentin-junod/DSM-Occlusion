@@ -2,10 +2,6 @@
 #include <iostream>
 #include <cmath>
 
-#include <chrono>
-#include <atomic>
-#include <ostream>
-
 #include "primitives/Vec3.cuh"
 #include "utils/utils.cuh"
 #include "IO/Raster.h"
@@ -27,27 +23,28 @@ void initRender(int maxX, int maxY, curandState* randomState) {
 
 
 __global__
-void trace(float* data, Point3<float>* points, int maxX, int maxY, BVH<float>* bvh, const int raysPerPoint, curandState* randomState, BVHNode<float>** traceBuffer, int traceBufferSize){
-    /*const int x = threadIdx.x + blockIdx.x * blockDim.x;
+void trace(float* data, Point3<float>* points, int maxX, int maxY, BVH<float>* bvh, const int raysPerPoint, curandState* randomState, BVHNode<float>** traceBuffer, int traceBufferSize, int nbDirs){
+    const int x = threadIdx.x + blockIdx.x * blockDim.x;
     const int y = threadIdx.y + blockIdx.y * blockDim.y;
     if(x>=maxX || y>=maxY) return;
     const int index = y*maxX + x;
 
     curandState localRndState = randomState[index];
 
+    Point3<float> origin  = points[index];
     Vec3<float> direction = Vec3<float>(0,0,0);
-    Ray<float> ray = Ray<float>(points[index], direction);
+    Ray<float> ray        = Ray<float>(origin, direction);
 
     float result = 0;
     for(int i=0; i<raysPerPoint; i++){
-        ray.getDirection().setRandomInHemisphere(localRndState, i%4);
-        result += bvh->getLighting(ray, &traceBuffer[index*traceBufferSize]);
+        const float p = ray.getDirection().setRandomInHemisphereCosine(localRndState, nbDirs, i%nbDirs);
+        result += bvh->getLighting(ray, &traceBuffer[index*traceBufferSize])/p;
     }
-    data[index] = result/raysPerPoint;*/
+    data[index] = result/raysPerPoint;
 }
 
 int main(){
-    const bool USE_GPU = false;
+    const bool USE_GPU = true;
     const bool PRINT_INFOS = true;
     const char* filename = "data/input.tif";
     const char* outputFilename = "data/output.tif";
@@ -120,7 +117,8 @@ int main(){
     std::cout << "BVH built\n";
 
     // Trace
-    constexpr unsigned int RAYS_PER_POINT = 1024;
+    constexpr unsigned int RAYS_PER_POINT = 128;
+    constexpr int NB_STRATIFIED_DIRS = 32;
 
     BVHNode<float>** traceBuffer;
     const int traceBufferSizePerThread = std::log2(bvh->size())+1;
@@ -143,14 +141,12 @@ int main(){
 
         trace<<<blocks, threads>>>(
             data, points, raster.getWidth(), raster.getHeight(), 
-            bvh, RAYS_PER_POINT, randomState, traceBuffer, traceBufferSizePerThread);
+            bvh, RAYS_PER_POINT, randomState, traceBuffer, traceBufferSizePerThread, NB_STRATIFIED_DIRS);
         checkError(cudaGetLastError());
         checkError(cudaDeviceSynchronize());
 
     }else{
         std::cout << "Start tracing...\n";
-
-        constexpr int NB_STRATIFIED_DIRS = 32;
 
         float progress = 0;
         float nextProgress = 0.1;
@@ -166,7 +162,7 @@ int main(){
 
                 float result = 0;
                 for(int i=0; i<RAYS_PER_POINT; i++){
-                    float p = ray.getDirection().setRandomInHemisphereImportance( NB_STRATIFIED_DIRS , i%NB_STRATIFIED_DIRS );
+                    const float p = ray.getDirection().setRandomInHemisphereCosine( NB_STRATIFIED_DIRS , i%NB_STRATIFIED_DIRS );
                     result += bvh->getLighting(ray, &traceBuffer[index*traceBufferSizePerThread])/p;
                 }
                 data[index] = result/RAYS_PER_POINT;
@@ -191,9 +187,7 @@ int main(){
     cudaFree(elementsMemory);
     cudaFree(bboxMemory);
     cudaFree(BVHNodeMemory);
-
     cudaFree(data);
-
 
     std::cout << "Finished \n";
     return 0;
