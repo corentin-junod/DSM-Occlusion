@@ -106,12 +106,10 @@ public:
         T p, q, theta;
         if(uniform0_1(generator) > 1.0/4.0){
             theta = acos(uniform0_1(generator)/2.0 + 0.5);
-            p = 1.0/(2.0*PI);
-            q = 3.0/4.0;
+            p =(1.0/(2.0*PI)) * (3.0/2.0);
         }else{
             theta = acos(uniform0_1(generator)/2.0);
-            p = 1.0/(2.0*PI);
-            q = 1.0/4.0;
+            p = (1.0/(2.0*PI)) * (1.0/2.0);
         }
         const T sinTheta = sin(theta);
         const T cosTheta = cos(theta);
@@ -119,7 +117,7 @@ public:
         y = sinTheta*sin(phi);
         z = cosTheta; 
         
-        return p/q;
+        return p;
     };
 
     __host__ float setRandomInHemisphereUniform(const float nbSegments, const float segmentNumber){
@@ -131,7 +129,7 @@ public:
         x = sinTheta*cos(phi);
         y = sinTheta*sin(phi);
         z = cosTheta; 
-        return 1;
+        return 1/(2*PI);
     };
 
     T x, y, z;

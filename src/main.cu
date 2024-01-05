@@ -120,7 +120,7 @@ int main(){
     std::cout << "BVH built\n";
 
     // Trace
-    constexpr unsigned int RAYS_PER_POINT = 512;
+    constexpr unsigned int RAYS_PER_POINT = 1024;
 
     BVHNode<float>** traceBuffer;
     const int traceBufferSizePerThread = std::log2(bvh->size())+1;
@@ -166,8 +166,8 @@ int main(){
 
                 float result = 0;
                 for(int i=0; i<RAYS_PER_POINT; i++){
-                    float w = ray.getDirection().setRandomInHemisphereImportance( NB_STRATIFIED_DIRS , i%NB_STRATIFIED_DIRS );
-                    result += w*bvh->getLighting(ray, &traceBuffer[index*traceBufferSizePerThread]);
+                    float p = ray.getDirection().setRandomInHemisphereImportance( NB_STRATIFIED_DIRS , i%NB_STRATIFIED_DIRS );
+                    result += bvh->getLighting(ray, &traceBuffer[index*traceBufferSizePerThread])/p;
                 }
                 data[index] = result/RAYS_PER_POINT;
             }
