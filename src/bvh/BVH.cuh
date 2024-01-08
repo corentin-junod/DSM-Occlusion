@@ -3,6 +3,7 @@
 #include "../primitives/Bbox.cuh"
 #include "../primitives/Ray.cuh"
 #include "../array/Array.cuh"
+#include <cstdio>
 #include <ostream>
 
 #define TILE_SIZE 0.5 
@@ -36,25 +37,36 @@ template<typename T>
 class BVH{
 
 public:
-    __host__ __device__ BVH(
-        Array<Point3<T>*>& points, 
-        ArraySegment<T>* stackMemory, 
-        Array<Point3<T>*>& workingBuffer, 
-        BVHNode<T>* BVHNodeMemory, 
-        Bbox<T>* bboxMemory, 
-        Array<Point3<T>>* elementsMemory){
-            root = BVH::build(points, workingBuffer, stackMemory,  BVHNodeMemory, bboxMemory, elementsMemory);
+    __host__ __device__ BVH(const unsigned int nbPixels): workingBuffer(Array<Point3<float>*>(nullptr, 0)) {
+        Point3<float>** workingBufferMem = (Point3<float>**)malloc(nbPixels * sizeof(Point3<float>*));
+        workingBuffer = Array<Point3<float>*>(workingBufferMem, nbPixels);
+        stackMemory = (ArraySegment<float>*)malloc(nbPixels * sizeof(ArraySegment<float>));
+
+        BVHNodeMemory  = (BVHNode<float>*)malloc(2*nbPixels*sizeof(BVHNode<float>));
+        bboxMemory     = (Bbox<float>*)malloc(2*nbPixels*sizeof(Bbox<float>));
+        elementsMemory = (Array<Point3<float>>*)malloc(2*nbPixels*sizeof(Array<Point3<float>>));
+    }
+
+    __host__ __device__ ~BVH(){
+        free(elementsMemory);
+        free(bboxMemory);
+        free(BVHNodeMemory);
+    }
+
+    __host__ void printInfos(){
+        std::cout << "BVH : \n   Nodes : " << nbNodes << "\n   Leaves : " << nbLeaves << '\n';
     }
     
-    __host__ __device__ int size() const {return nbElements;}
+    __host__ __device__ int size() const {return nbNodes;}
 
-    __host__ __device__ float getLighting(const Ray<T>& ray, BVHNode<T>** buffer) const { 
+    __host__  float getLighting(const Ray<T>& ray, BVHNode<T>** buffer) const { 
         ray.getDirection().normalize();
         unsigned int bufferSize = 0;
         buffer[bufferSize++] = root;
 
         while(bufferSize > 0){
             BVHNode<T>* node = buffer[--bufferSize];
+
             if(node != nullptr && node->bbox->intersects(ray)){
                 if(node->elements != nullptr){
                     for(const Point3<T>& point : *node->elements){
@@ -70,10 +82,65 @@ public:
         return 1;
     }
 
+    __host__ __device__ void build(Array<Point3<T>*>& points) {
+
+        const float margin = TILE_SIZE/2;
+        const unsigned int bboxMaxSize = 5;
+
+        int BVHNodeCounter = 0;
+        int bboxCounter = 0;
+
+        Stack<T> stack = Stack<T>{stackMemory, 0};
+
+        BVHNode<T>* rootNode = new (&BVHNodeMemory[BVHNodeCounter++]) BVHNode<T>();
+
+        Point3<T>** begin = points.begin();
+        Point3<T>** end   = points.end();
+        stack.push(ArraySegment<T>{begin, end, rootNode});
+        
+        while(stack.size > 0){
+            nbNodes++;
+            ArraySegment curSegment = stack.pop();
+            const unsigned int curSize = curSegment.tail-curSegment.head;
+
+            Bbox<T>* bbox = new (&bboxMemory[bboxCounter++]) Bbox<T>();
+            bbox->setEnglobing(curSegment.head, curSize, margin);
+            curSegment.node->bbox = bbox;
+
+            if(curSize < bboxMaxSize){
+                curSegment.node->elements = new (&elementsMemory[nbLeaves++]) Array<Point3<T>>(*curSegment.head, curSize);
+            }else{
+
+                const unsigned int splitIndex = BVH::split(curSegment.head, curSize, bbox);
+                Point3<T>** middle = &(curSegment.head[splitIndex]);
+
+                curSegment.node->left  = new (&BVHNodeMemory[BVHNodeCounter++]) BVHNode<T>();
+                curSegment.node->right = new (&BVHNodeMemory[BVHNodeCounter++]) BVHNode<T>();
+
+                stack.push(ArraySegment<T>{curSegment.head, middle, curSegment.node->left});
+                stack.push(ArraySegment<T>{middle, curSegment.tail, curSegment.node->right});
+            }
+        }
+
+        free(stackMemory);
+        free(&workingBuffer[0]);
+
+        root = rootNode;
+    }
+
 private:
 
     BVHNode<T>* root;
-    int nbElements = 0;
+    int nbNodes = 0;
+    int nbLeaves = 0;
+
+    Array<Point3<float>*> workingBuffer;
+    ArraySegment<float>*  stackMemory;
+
+    BVHNode<float>*       BVHNodeMemory;
+    Bbox<float>*          bboxMemory;
+    Array<Point3<float>>* elementsMemory;
+
 
     __host__ __device__ bool intersectBox(const Point3<T>& top, const Ray<T>& ray, const float margin) const {
         const Vec3<T>& rayDir = ray.getDirection();
@@ -134,53 +201,10 @@ private:
         return delta >= 0 && t > 0;
     }
 
-    __host__ __device__ BVHNode<T>* build(Array<Point3<T>*>& points, Array<Point3<T>*> workingBuffer, ArraySegment<T>* stackMemory, BVHNode<T>* BVHNodeMemory, Bbox<T>* bboxMemory, Array<Point3<T>>* elementsMemory) {
-
-        const float margin = TILE_SIZE/2;
-        const unsigned int bboxMaxSize = 5;
-
-        int BVHNodeCounter = 0;
-        int bboxCounter = 0;
-        int elementsCounter = 0;
-
-        Stack<T> stack = Stack<T>{stackMemory, 0};
-
-        BVHNode<T>* root = new (&BVHNodeMemory[BVHNodeCounter++]) BVHNode<T>();
-
-        Point3<T>** begin = points.begin();
-        Point3<T>** end   = points.end();
-        stack.push(ArraySegment<T>{begin, end, root});
-        
-        while(stack.size > 0){
-            nbElements++;
-            ArraySegment curSegment = stack.pop();
-            const unsigned int curSize = curSegment.tail-curSegment.head;
-
-            Bbox<T>* bbox = new (&bboxMemory[bboxCounter++]) Bbox<T>();
-            bbox->setEnglobing(curSegment.head, curSize, margin);
-            curSegment.node->bbox = bbox;
-
-            if(curSize < bboxMaxSize){
-                curSegment.node->elements = new (&elementsMemory[elementsCounter++]) Array<Point3<T>>(*curSegment.head, curSize);
-            }else{
-
-                const unsigned int splitIndex = BVH::split(curSegment.head, workingBuffer, curSize, bbox);
-                Point3<T>** middle = &(curSegment.head[splitIndex]);
-
-                curSegment.node->left  = new (&BVHNodeMemory[BVHNodeCounter++]) BVHNode<T>();
-                curSegment.node->right = new (&BVHNodeMemory[BVHNodeCounter++]) BVHNode<T>();
-
-                stack.push(ArraySegment<T>{curSegment.head, middle, curSegment.node->left});
-                stack.push(ArraySegment<T>{middle, curSegment.tail, curSegment.node->right});
-            }
-        }
-        return root;
-    }
-
-    __host__ __device__ int split(Point3<T>** points, Array<Point3<T>*> workingBuffer, unsigned int size, const Bbox<T>* bbox) const {
+    __host__ __device__ int split(Point3<T>** points, unsigned int size, const Bbox<T>* bbox) const {
         const T dx = bbox->getEdgeLength('X');
         const T dy = bbox->getEdgeLength('Y');
-        const T dz = bbox->getEdgeLength('Z');
+        //const T dz = bbox->getEdgeLength('Z');
         const Point3<T> center = bbox->getCenter();
 
         int nbLeft  = 0;

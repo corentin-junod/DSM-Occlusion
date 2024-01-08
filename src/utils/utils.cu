@@ -1,5 +1,15 @@
 #include "utils.cuh"
 
+void* allocGPU(unsigned int count, unsigned int size){
+    void* result = nullptr;
+    checkError(cudaMallocManaged(&result, count*size));
+    return result;
+}
+
+void freeGPU(void* memory){
+    checkError(cudaFree(memory));
+}
+
 void check_error(cudaError_t result, const char* const func, const char* const file, const int line) {
     if (result) {
         unsigned int res = static_cast<unsigned int>(result);

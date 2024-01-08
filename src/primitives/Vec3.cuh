@@ -1,10 +1,10 @@
 #pragma once
 
+#include "../utils/definitions.cuh"
+
 #include <curand_kernel.h>
 #include <iostream>
 #include <random>
-
-#define PI 3.14159265358979323846
 
 std::default_random_engine generator;
 std::uniform_real_distribution<> uniform0_1  = std::uniform_real_distribution<>(0, 1);
@@ -40,7 +40,7 @@ public:
         x = sinTheta*cos(phi);
         y = sinTheta*sin(phi);
         z = cosTheta; 
-        return cosTheta/(2*PI);
+        return 1/(2*PI); // probability = cosTheta/(2*PI), so cosTheta/probability = 1/(2*PI)
     }
 
     __host__ float setRandomInHemisphereCosine(const float nbSegments, const float segmentNumber){
@@ -52,20 +52,22 @@ public:
         const T cosTheta = cos(theta);
         x = sinTheta*cos(phi);
         y = sinTheta*sin(phi);
-        z = cosTheta; 
-        return cosTheta/(2*PI);
+        z = cosTheta;
+        const T pdf = cosTheta / PI;
+        return 1 / pdf;
     }
 
     __host__ float setRandomInHemisphereUniform(const float nbSegments, const float segmentNumber){
         const T segmentSize = 2*PI/nbSegments;
         const T phi = uniform0_1(generator) * segmentSize + segmentSize * segmentNumber;
-        const T theta = acos(uniform0_1(generator));
+        const T theta = acos(uniform0_1(generator)*0.99 + 0.01);
         const T sinTheta = sin(theta);
         const T cosTheta = cos(theta);
         x = sinTheta*cos(phi);
         y = sinTheta*sin(phi);
-        z = cosTheta; 
-        return 1/(2*PI);
+        z = cosTheta;
+        const T pdf = 1/(2*PI);
+        return cosTheta/pdf;
     };
 
     /*__host__ float setRandomInHemisphereImportance(const float nbSegments, const float segmentNumber){
