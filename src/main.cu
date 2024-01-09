@@ -12,11 +12,28 @@
 #include "primitives/Ray.cuh"
 
 
-/*__global__
-void buildBVH(BVH<float>** bvh, unsigned int nbPixels){
-    &bvh = new BVH<float>(*pointsArray, BVHNodeMemory, bboxMemory, elementsMemory);
-    bvh->build();
-}*/
+__host__ __device__ void buildBVH(BVH<float>** bvh, float* data, Point3<float>* points, unsigned int width, unsigned int height, float pixelSize){
+    const unsigned nbPixels = width * height;
+
+    Point3<float>** pointsArrayContent = (Point3<float>**)malloc(nbPixels*sizeof(Point3<float>*));
+    Array<Point3<float>*> pointsArray = Array<Point3<float>*>(pointsArrayContent, nbPixels);
+
+    for(unsigned int y=0; y<height; y++){
+        for(unsigned int x=0; x<width; x++){
+            const int index = y*width+x;
+            points[index] = Point3<float>((float)x*pixelSize,(float)y*pixelSize, data[index]);
+            pointsArray[index] = &(points[index]);
+        }
+    }
+
+    *bvh = new BVH<float>(nbPixels);
+    (*bvh)->build(pointsArray);
+}
+
+__global__
+void buildBVHOnGPU(BVH<float>** bvh, float* data, Point3<float>* points, unsigned int width, unsigned int height, float pixelSize){
+    buildBVH(bvh, data, points, width, height, pixelSize);
+}
 
 __global__ 
 void initRender(int maxX, int maxY, curandState* randomState) {
@@ -55,6 +72,11 @@ int main(){
     const char* filename = "data/input.tif";
     const char* outputFilename = "data/output.tif";
 
+    const unsigned int RAYS_PER_POINT = 64;
+    const int NB_STRATIFIED_DIRS = 32;
+    const float pixelSize = 0.5;
+
+
     Raster raster = Raster(filename, outputFilename);
     const unsigned int nbPixels = raster.getWidth()*raster.getHeight();
 
@@ -63,51 +85,26 @@ int main(){
         printDevicesInfos();     
     }
 
-    if(USE_GPU){
-
-    }else{
-
-    }
-
-    // Read data from raster
-    float* data;
-    checkError(cudaMallocManaged(&data, nbPixels*sizeof(float)));
+    float* data = (float*)allocGPU(nbPixels, sizeof(float));
     raster.readData(data);
 
-    // Create points in 3D
-    Point3<float>* points = (Point3<float>*) allocGPU(nbPixels, sizeof(Point3<float>));
-
-    Point3<float>** pointsArrayContent;
-    checkError(cudaMallocManaged(&pointsArrayContent, nbPixels*sizeof(Point3<float>*)));
-
-    Point3<float>* pointsArrayMemory;
-    checkError(cudaMallocManaged(&pointsArrayMemory, sizeof(Array<Point3<float>*>)));
-    Array<Point3<float>*>* pointsArray = new (pointsArrayMemory) Array<Point3<float>*>(pointsArrayContent, nbPixels);
-    
-
-    for(int y=0; y<raster.getHeight(); y++){
-        for(int x=0; x<raster.getWidth(); x++){
-            const int index = y*raster.getWidth()+x;
-            points[index] = Point3<float>((float)x/2,(float)y/2,data[index]);
-            (*pointsArray)[index] = &(points[index]);
-        }
-    }
+    Point3<float>* points = (Point3<float>*)allocGPU(nbPixels, sizeof(Point3<float>));
 
 
     std::cout << "Building BVH...\n";
 
-    BVH<float> bvh = BVH<float>(nbPixels);
-    bvh.build(*pointsArray);
-    bvh.printInfos();
+    BVH<float>* bvh;
+
+    if(USE_GPU){
+        buildBVHOnGPU<<<1,1>>>(&bvh, data, points, raster.getWidth(), raster.getHeight(), pixelSize);
+    }else{
+        buildBVH(&bvh, data, points, raster.getWidth(), raster.getHeight(), pixelSize);
+        bvh->printInfos();
+    }
     
     std::cout << "BVH built\n";
 
-
-    // Trace
-    constexpr unsigned int RAYS_PER_POINT = 64;
-    constexpr int NB_STRATIFIED_DIRS = 32;
-
-    const int traceBufferSizePerThread = std::log2(bvh.size())+1;
+    const int traceBufferSizePerThread = std::log2(bvh->size())+1;
     BVHNode<float>** traceBuffer = (BVHNode<float>**)allocGPU(nbPixels*traceBufferSizePerThread, sizeof(BVHNode<float>*));
 
     std::cout << "Start tracing...\n";
@@ -149,10 +146,10 @@ int main(){
 
                 float result = 0;
                 for(int i=0; i<RAYS_PER_POINT; i++){
-                    const float cosThetaOverP = ray.getDirection().setRandomInHemisphereCosine( NB_STRATIFIED_DIRS , i%NB_STRATIFIED_DIRS );
-                    result += cosThetaOverP*bvh.getLighting(ray, &traceBuffer[index*traceBufferSizePerThread]);
+                    const float cosThetaOverPdf = ray.getDirection().setRandomInHemisphereCosine( NB_STRATIFIED_DIRS , i%NB_STRATIFIED_DIRS );
+                    result += cosThetaOverPdf*bvh->getLighting(ray, &traceBuffer[index*traceBufferSizePerThread]);
                 }
-                data[index] = result/RAYS_PER_POINT;
+                data[index] = (result/RAYS_PER_POINT)*(1/PI); // Diffuse BSDF
             }
 
             #pragma omp atomic
