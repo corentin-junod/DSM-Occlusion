@@ -1,13 +1,7 @@
 #pragma once
 
 #include "../utils/definitions.cuh"
-
-#include <curand_kernel.h>
 #include <iostream>
-#include <random>
-
-std::default_random_engine generator;
-std::uniform_real_distribution<> uniform0_1  = std::uniform_real_distribution<>(0.001, 1);
 
 template<typename T>
 class Vec3{
@@ -30,23 +24,10 @@ public:
         return x*other.x + y*other.y + z*other.z; 
     }
 
-    __device__ float setRandomInHemisphereCosine(curandState_t& state, const float nbSegments, const float segmentNumber){
+    __host__ __device__ float setRandomInHemisphereCosine(const float nbSegments, const float segmentNumber, float rndNumber1, float rndNumber2){
         const T segmentSize = 2*PI/nbSegments;
-        const T phi = curand_uniform(&state) * 2*PI / segmentSize + segmentSize * segmentNumber;
-
-        const T theta = acos(sqrt(curand_uniform(&state)));
-        const T sinTheta = sin(theta);
-        const T cosTheta = cos(theta);
-        x = sinTheta*cos(phi);
-        y = sinTheta*sin(phi);
-        z = cosTheta; 
-        return 1/(2*PI);
-    }
-
-    __host__ float setRandomInHemisphereCosine(const float nbSegments, const float segmentNumber){
-        const T segmentSize = 2*PI/nbSegments;
-        const T phi = uniform0_1(generator) * 2*PI / segmentSize + segmentSize * segmentNumber;
-        const T theta = acos(sqrt(uniform0_1(generator)));
+        const T phi = rndNumber1 * 2*PI / segmentSize + segmentSize * segmentNumber;
+        const T theta = acos(sqrt(rndNumber2));
         const T sinTheta = sin(theta);
         const T cosTheta = cos(theta);
         x = sinTheta*cos(phi);
@@ -56,10 +37,10 @@ public:
         return cosTheta / pdf;
     }
 
-    __host__ float setRandomInHemisphereUniform(const float nbSegments, const float segmentNumber){
+    __host__ float setRandomInHemisphereUniform(const float nbSegments, const float segmentNumber, float rndNumber1, float rndNumber2){
         const T segmentSize = 2*PI/nbSegments;
-        const T phi = uniform0_1(generator) * segmentSize + segmentSize * segmentNumber;
-        const T theta = acos(uniform0_1(generator));
+        const T phi = rndNumber1 * segmentSize + segmentSize * segmentNumber;
+        const T theta = acos(rndNumber2);
         const T sinTheta = sin(theta);
         const T cosTheta = cos(theta);
         x = sinTheta*cos(phi);

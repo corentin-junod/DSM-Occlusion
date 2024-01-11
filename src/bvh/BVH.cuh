@@ -59,7 +59,7 @@ public:
     
     __host__ __device__ int size() const {return nbNodes;}
 
-    __host__  float getLighting(const Ray<T>& ray, BVHNode<T>** buffer) const { 
+    __host__ __device__ float getLighting(const Ray<T>& ray, BVHNode<T>** buffer) const { 
         ray.getDirection().normalize();
         unsigned int bufferSize = 0;
         buffer[bufferSize++] = root;

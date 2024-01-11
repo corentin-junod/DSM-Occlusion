@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Vec3.cuh"
+
 template<typename T>
 class Point3{
 public:
