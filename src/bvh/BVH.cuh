@@ -44,29 +44,12 @@ public:
         elementsMemory = (Array<Point3<float>>*) allocMemory(2*nbPixels, sizeof(Array<Point3<float>>), useGPU);
         stackMemory    = (ArraySegment<float>*)  allocMemory(nbPixels,   sizeof(ArraySegment<float>),  useGPU);
         workingBuffer  = (Point3<float>**)       allocMemory(nbPixels,   sizeof(Point3<float>*),       useGPU);
-        
     }
-
-    __host__ void freeMemoryAfterBuild(){
-        freeMemory(stackMemory,   useGPU);
-        freeMemory(workingBuffer, useGPU);
-    } 
     
-    __host__ void free(){
+    __host__ __device__ void releaseMemory(const bool useGPU){
         freeMemory(elementsMemory, useGPU);
         freeMemory(bboxMemory,     useGPU);
         freeMemory(bvhNodes,       useGPU);
-    }
-
-    __host__ __device__ void operator=(const BVH<T>& other){
-        useGPU         = other.useGPU;
-        bvhNodes       = other.bvhNodes;
-        bboxMemory     = other.bboxMemory;
-        elementsMemory = other.elementsMemory;
-        stackMemory    = other.stackMemory;
-        workingBuffer  = other.workingBuffer;
-        nbNodes        = other.nbNodes;
-        nbLeaves       = other.nbLeaves;
     }
 
     __host__ void printInfos(){std::cout<<"BVH : \n   Nodes : "<<nbNodes<<"\n   Leaves : "<<nbLeaves<<'\n';}
@@ -132,6 +115,9 @@ public:
                 stack.push(ArraySegment<T>{middle, curSegment.tail, curSegment.node->right});
             }
         }
+
+        free(stackMemory);
+        free(workingBuffer);
     }
 
 private:

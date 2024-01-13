@@ -3,9 +3,8 @@
 #include <curand_kernel.h>
 
 class Tracer{
-
 public:
-    Tracer(float* const data, const bool useGPU, const unsigned int width, const unsigned int height, const float pixelSize);
+    Tracer(Array2D<float>& data, const float pixelSize, const bool useGPU);
     ~Tracer();
 
     void init(const bool prinInfos);
@@ -17,8 +16,9 @@ private:
     const float pixelSize;
     const bool useGPU;
 
-    float* const data;
-    Point3<float>* points;
+
     BVH<float>* bvh = nullptr; 
-    curandState* randomState = nullptr;
+    Array2D<float>& data;
+    Point3<float>* const points;
+    curandState*   const randomState;
 };

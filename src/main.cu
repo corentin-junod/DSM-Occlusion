@@ -1,9 +1,7 @@
-#include <cstddef>
 #include <iostream>
-#include <cmath>
 
+#include "array/Array.cuh"
 #include "utils/utils.cuh"
-#include "utils/definitions.cuh"
 #include "IO/Raster.h"
 #include "tracer/Tracer.cuh"
 
@@ -16,9 +14,7 @@ int main(){
     const unsigned int RAYS_PER_POINT = 64;
     const float pixelSize = 0.5;
 
-
     Raster raster = Raster(filename, outputFilename);
-    const unsigned long nbPixels = raster.getWidth()*raster.getHeight();
 
     if(PRINT_INFOS){
         raster.printInfos();
@@ -26,10 +22,10 @@ int main(){
     }
 
     std::cout << "Reading data...\n";
-    float* data = (float*)allocMemory(nbPixels, sizeof(float), USE_GPU);
-    raster.readData(data);
+    Array2D<float> data(raster.getWidth(), raster.getHeight());
+    raster.readData(data.begin());
 
-    Tracer tracer = Tracer(data, USE_GPU, raster.getWidth(), raster.getHeight(), pixelSize);
+    Tracer tracer = Tracer(data, pixelSize, USE_GPU);
 
     std::cout << "Building BVH...\n";
     tracer.init(true);
@@ -39,13 +35,7 @@ int main(){
     tracer.trace(RAYS_PER_POINT);
     std::cout << "Tracing finished...\n";
 
-    raster.writeData(data); //TODO copy memory back to host if on device
-
-    if(USE_GPU){
-        cudaFree(data);
-    }else{
-        free(data);
-    }
+    raster.writeData(data.begin());
 
     std::cout << "Finished \n";
     return 0;

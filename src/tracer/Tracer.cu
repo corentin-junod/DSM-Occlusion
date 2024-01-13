@@ -1,7 +1,6 @@
 #include "Tracer.cuh"
 #include "../utils/utils.cuh"
 
-#include <new>
 #include <random>
 
 std::default_random_engine genEngine;
@@ -26,13 +25,13 @@ void initRender(float* data, Point3<float>* points, Point3<float>** pointsPointe
 }
 
 __global__
-void initRenderGPU(float* data, Point3<float>* points, Point3<float>** pointsPointers, BVH<float>* bvh, float pixelSize, const unsigned int width, const unsigned int height, curandState* const randomState) {
+void initRenderGPU(Array2D<float>* data, Point3<float>* points, Point3<float>** pointsPointers, BVH<float>* bvh, float pixelSize, const unsigned int width, const unsigned int height, curandState* const randomState) {
     const unsigned int x = threadIdx.x + blockIdx.x * blockDim.x;
     const unsigned int y = threadIdx.y + blockIdx.y * blockDim.y;
     if(x>=width || y>=height) return;
     const unsigned int index = y*width + x;
     curand_init(SEED, index, 0, &randomState[index]);
-    initRender(data, points, pointsPointers, bvh, pixelSize, width, height);
+    initRender(data->begin(), points, pointsPointers, bvh, pixelSize, width, height);
 }
 
 
@@ -54,7 +53,7 @@ void render(float* const data, const unsigned int index, const unsigned int rays
 }
 
 __global__
-void renderGPU(float* data, Point3<float>* points, int width, int height, BVH<float>* bvh, const int raysPerPoint, curandState* randomState, BVHNode<float>** traceBuffer, int traceBufferSize){
+void renderGPU(Array2D<float>* data, Point3<float>* points, int width, int height, BVH<float>* bvh, const int raysPerPoint, curandState* randomState, BVHNode<float>** traceBuffer, int traceBufferSize){
     const int x = threadIdx.x + blockIdx.x * blockDim.x;
     const int y = threadIdx.y + blockIdx.y * blockDim.y;
     if(x>=width || y>=height) return;
@@ -72,15 +71,16 @@ void renderGPU(float* data, Point3<float>* points, int width, int height, BVH<fl
         const float cosThetaOverPdf = ray.getDirection().setRandomInHemisphereCosine( NB_STRATIFIED_DIRS , segmentNumber, rnd1, rnd2);
         result += cosThetaOverPdf*bvh->getLighting(ray, &traceBuffer[index*traceBufferSize]);
     }
-    data[index] = (result/raysPerPoint)*(1/PI); // Diffuse BSDF
+    data->begin()[index] = (result/raysPerPoint)*(1/PI); // Diffuse BSDF
 }
 
 
-Tracer::Tracer(float* const data, const bool useGPU, const unsigned int width, const unsigned int height, const float pixelSize) : 
-    data(data), useGPU(useGPU), width(width), height(height), pixelSize(pixelSize){
-    if(useGPU) randomState = (curandState*) allocGPU(width*height, sizeof(curandState));
-    points = (Point3<float>*) allocMemory(width*height, sizeof(Point3<float>), useGPU);
-}
+Tracer::Tracer(Array2D<float>& data, const float pixelSize, const bool useGPU) : 
+    data(data), width(data.width()), height(data.height()),
+    useGPU(useGPU),
+    pixelSize(pixelSize),
+    randomState(useGPU ? (curandState*) allocGPU(width*height, sizeof(curandState)) : nullptr),
+    points((Point3<float>*) allocMemory(width*height, sizeof(Point3<float>), useGPU)){}
 
 Tracer::~Tracer(){
     if(useGPU) cudaFree(randomState);
@@ -89,17 +89,22 @@ Tracer::~Tracer(){
 
 void Tracer::init(const bool prinInfos){
     Point3<float>** pointsArray = (Point3<float>**) allocMemory(width*height, sizeof(Point3<float>*), useGPU); //TODO free after use
-    bvh = (BVH<float>*)allocMemory(1, sizeof(BVH<float>), useGPU);
-    new (bvh) BVH<float>(useGPU, width*height);
+    bvh = new BVH<float>(useGPU, width*height);
     if(useGPU){
-        initRenderGPU<<<1,1>>>(data, points, pointsArray, bvh, pixelSize, width, height, randomState);
+        BVH<float>* bvhDevice = (BVH<float>*) allocGPU(sizeof(BVH<float>)); // TODO free
+        checkError(cudaMemcpy(bvhDevice, bvh, sizeof(BVH<float>), cudaMemcpyHostToDevice));
+        free(bvh);
+        bvh = bvhDevice;
+
+        Array2D<float>* dataGPU = data.createReplicaGPU();
+        initRenderGPU<<<1,1>>>(dataGPU, points, pointsArray, bvh, pixelSize, width, height, randomState);
         checkError(cudaGetLastError());
         checkError(cudaDeviceSynchronize());
+        data.consumeReplicaGPU(dataGPU);
     }else{
-        initRender(data, points, pointsArray, bvh, pixelSize, width, height);
+        initRender(data.begin(), points, pointsArray, bvh, pixelSize, width, height);
         if(prinInfos) bvh->printInfos();
     }
-    bvh->freeMemoryAfterBuild();
 }
 
 
@@ -117,9 +122,11 @@ void Tracer::trace(const unsigned int raysPerPoint){
 
     if(useGPU){
         const dim3 blocks(width/threads.x+1, height/threads.y+1);
-        renderGPU<<<blocks, threads>>>(data, points, width, height, bvh, raysPerPoint, randomState, traceBuffer, traceBufferSizePerThread);
+        Array2D<float>* dataGPU = data.createReplicaGPU();
+        renderGPU<<<blocks, threads>>>(dataGPU, points, width, height, bvh, raysPerPoint, randomState, traceBuffer, traceBufferSizePerThread);
         checkError(cudaGetLastError());
         checkError(cudaDeviceSynchronize());
+        data.consumeReplicaGPU(dataGPU);
     }else{
         float progress = 0;
         float nextProgress = 0.1;
@@ -127,7 +134,7 @@ void Tracer::trace(const unsigned int raysPerPoint){
         #pragma omp parallel for
         for(int y=0; y<height; y++){
             for(int x=0; x<width; x++){
-                render(data, y*width+x, raysPerPoint, points, bvh, traceBuffer, traceBufferSizePerThread);
+                render(data.begin(), y*width+x, raysPerPoint, points, bvh, traceBuffer, traceBufferSizePerThread);
             }
 
             #pragma omp atomic
