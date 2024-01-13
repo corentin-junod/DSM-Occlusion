@@ -19,6 +19,6 @@ private:
 
     float* const data;
     Point3<float>* points;
-    BVH<float> bvh; 
+    BVH<float>* bvh = nullptr; 
     curandState* randomState = nullptr;
 };

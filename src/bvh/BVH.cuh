@@ -44,6 +44,7 @@ public:
         elementsMemory = (Array<Point3<float>>*) allocMemory(2*nbPixels, sizeof(Array<Point3<float>>), useGPU);
         stackMemory    = (ArraySegment<float>*)  allocMemory(nbPixels,   sizeof(ArraySegment<float>),  useGPU);
         workingBuffer  = (Point3<float>**)       allocMemory(nbPixels,   sizeof(Point3<float>*),       useGPU);
+        
     }
 
     __host__ void freeMemoryAfterBuild(){
@@ -64,7 +65,6 @@ public:
         elementsMemory = other.elementsMemory;
         stackMemory    = other.stackMemory;
         workingBuffer  = other.workingBuffer;
-        root           = other.root;
         nbNodes        = other.nbNodes;
         nbLeaves       = other.nbLeaves;
     }
@@ -75,7 +75,7 @@ public:
     __host__ __device__ float getLighting(const Ray<T> ray, BVHNode<T>** buffer) const { 
         ray.getDirection().normalize();
         unsigned int bufferSize = 0;
-        buffer[bufferSize++] = root;
+        buffer[bufferSize++] = &bvhNodes[0];
 
         while(bufferSize > 0){
             BVHNode<T>* node = buffer[--bufferSize];
@@ -103,7 +103,7 @@ public:
 
         Stack<T> stack = Stack<T>{stackMemory, 0};
 
-        root = new (&bvhNodes[BVHNodeCounter++]) BVHNode<T>();
+        BVHNode<T>* root = new (&bvhNodes[BVHNodeCounter++]) BVHNode<T>();
 
         Point3<T>** begin = points.begin();
         Point3<T>** end   = points.end();
@@ -137,17 +137,15 @@ public:
 private:
 
     const bool useGPU;
-
-    BVHNode<float>*        bvhNodes;
-    Bbox<float>*           bboxMemory;
-    Array<Point3<float>>*  elementsMemory;
-    ArraySegment<float>*   stackMemory;
-    Point3<float>** workingBuffer;
-
-    BVHNode<T>* root;
     unsigned int nbNodes = 0;
     unsigned int nbLeaves = 0;
     const unsigned int bboxMaxSize = 5;
+
+    BVHNode<float>*       bvhNodes;
+    Bbox<float>*          bboxMemory;
+    Array<Point3<float>>* elementsMemory;
+    ArraySegment<float>*  stackMemory;
+    Point3<float>**       workingBuffer;
 
 
     __host__ __device__ bool intersectBox(const Point3<T>& top, const Ray<T>& ray, const float margin) const {
