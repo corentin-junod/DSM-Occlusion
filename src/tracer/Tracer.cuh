@@ -8,7 +8,7 @@ public:
     Tracer(float* const data, const bool useGPU, const unsigned int width, const unsigned int height, const float pixelSize);
     ~Tracer();
 
-    void buildBVH(const bool prinInfos);
+    void init(const bool prinInfos);
     void trace(const unsigned int raysPerPoint);
 
 private:
@@ -19,6 +19,6 @@ private:
 
     float* const data;
     Point3<float>* points;
-    BVH<float>* bvh = nullptr; 
+    BVH<float> bvh; 
     curandState* randomState = nullptr;
 };
