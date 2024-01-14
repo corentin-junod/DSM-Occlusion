@@ -23,7 +23,7 @@ private:
 template<typename T>
 class Array2D{
 public:
-    __host__ Array2D(const unsigned int width, const unsigned int height, const bool allocArray=true): m_width(width), m_height(height){
+    __host__ __device__ Array2D(const unsigned int width, const unsigned int height, const bool allocArray=true): m_width(width), m_height(height){
         m_data = allocArray ? (T*)malloc(sizeof(T)*width*height) : nullptr; // TODO check for malloc errors
     }
 
@@ -40,7 +40,7 @@ public:
     __host__ __device__ T* begin() const {return &m_data[0];}
     __host__ __device__ T* end()   const {return &m_data[m_width*m_height];}
 
-    __host__ Array2D<T>* createReplicaGPU() {
+    __host__ Array2D<T>* toGPU() {
         T* dataOnGPU = (T*) allocGPU(m_width*m_height, sizeof(T));
         checkError(cudaMemcpy(dataOnGPU, m_data, sizeof(T)*m_width*m_height, cudaMemcpyHostToDevice));
 
@@ -52,7 +52,7 @@ public:
         return newArrayOnGPU;
     }
 
-    __host__ void consumeReplicaGPU(Array2D<T>* replica){
+    __host__ void fromGPU(Array2D<T>* replica){
         Array2D<T> tmpArray = Array2D<T>(m_width, m_height, false);
         checkError(cudaMemcpy(&tmpArray, replica, sizeof(Array2D<T>), cudaMemcpyDeviceToHost));
         checkError(cudaMemcpy(m_data, tmpArray.m_data, sizeof(T)*m_width*m_height, cudaMemcpyDeviceToHost));

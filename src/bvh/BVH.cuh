@@ -38,18 +38,64 @@ template<typename T>
 class BVH{
 
 public:
-    __host__ BVH(const bool useGPU, const unsigned int nbPixels): useGPU(useGPU) {
-        bvhNodes       = (BVHNode<float>*)       allocMemory(2*nbPixels, sizeof(BVHNode<float>),       useGPU);
-        bboxMemory     = (Bbox<float>*)          allocMemory(2*nbPixels, sizeof(Bbox<float>),          useGPU);
-        elementsMemory = (Array<Point3<float>>*) allocMemory(2*nbPixels, sizeof(Array<Point3<float>>), useGPU);
-        stackMemory    = (ArraySegment<float>*)  allocMemory(nbPixels,   sizeof(ArraySegment<float>),  useGPU);
-        workingBuffer  = (Point3<float>**)       allocMemory(nbPixels,   sizeof(Point3<float>*),       useGPU);
+    __host__ BVH(const unsigned int nbPixels): nbPixels(nbPixels) {
+        bvhNodes       = (BVHNode<float>*)       calloc(2*nbPixels, sizeof(BVHNode<float>));
+        bboxMemory     = (Bbox<float>*)          calloc(2*nbPixels, sizeof(Bbox<float>));
+        elementsMemory = (Array<Point3<float>>*) calloc(2*nbPixels, sizeof(Array<Point3<float>>));
+        stackMemory    = (ArraySegment<float>*)  calloc(nbPixels,   sizeof(ArraySegment<float>));
+        workingBuffer  = (Point3<float>**)       calloc(nbPixels,   sizeof(Point3<float>*));
+    }
+
+    __host__ void freeAfterBuild(){
+        free(stackMemory);
+        free(workingBuffer);
     }
     
-    __host__ __device__ void releaseMemory(const bool useGPU){
-        freeMemory(elementsMemory, useGPU);
-        freeMemory(bboxMemory,     useGPU);
-        freeMemory(bvhNodes,       useGPU);
+    __host__ void freeAllMemory(){
+        free(elementsMemory);
+        free(bboxMemory);
+        free(bvhNodes);
+    }
+
+    __host__ BVH<T>* toGPU() const {
+        BVHNode<float>*       bvhNodesGPU       = (BVHNode<float>*)       allocGPU(2*nbPixels*sizeof(BVHNode<float>));
+        Bbox<float>*          bboxMemoryGPU     = (Bbox<float>*)          allocGPU(2*nbPixels*sizeof(Bbox<float>));
+        Array<Point3<float>>* elementsMemoryGPU = (Array<Point3<float>>*) allocGPU(2*nbPixels*sizeof(Array<Point3<float>>));
+        ArraySegment<float>*  stackMemoryGPU    = (ArraySegment<float>*)  allocGPU(nbPixels*sizeof(ArraySegment<float>));
+        Point3<float>**       workingBufferGPU  = (Point3<float>**)       allocGPU(nbPixels*sizeof(Point3<float>*));
+
+        checkError(cudaMemcpy(bvhNodesGPU,       bvhNodes,       2*nbPixels*sizeof(BVHNode<float>),       cudaMemcpyHostToDevice));
+        checkError(cudaMemcpy(bboxMemoryGPU,     bboxMemory,     2*nbPixels*sizeof(Bbox<float>),          cudaMemcpyHostToDevice));
+        checkError(cudaMemcpy(elementsMemoryGPU, elementsMemory, 2*nbPixels*sizeof(Array<Point3<float>>), cudaMemcpyHostToDevice));
+        checkError(cudaMemcpy(stackMemoryGPU,    stackMemory,    nbPixels*sizeof(ArraySegment<float>),    cudaMemcpyHostToDevice));
+        checkError(cudaMemcpy(workingBufferGPU,  workingBuffer,  nbPixels*sizeof(Point3<float>*),         cudaMemcpyHostToDevice));
+
+        BVH<T> tmp = BVH<T>(nbPixels);
+        tmp.freeAfterBuild();
+        tmp.freeAllMemory();
+        tmp.bvhNodes       = bvhNodesGPU;
+        tmp.bboxMemory     = bboxMemoryGPU;
+        tmp.elementsMemory = elementsMemoryGPU;
+        tmp.stackMemory    = stackMemoryGPU;
+        tmp.workingBuffer  = workingBufferGPU;
+        BVH<T>* replica = (BVH<T>*) allocGPU(sizeof(BVH<T>));
+        checkError(cudaMemcpy(replica, &tmp, sizeof(BVH<T>), cudaMemcpyHostToDevice));
+        return replica;
+    }
+
+    __host__ void fromGPU(BVH<T>* replica){
+        BVH<T> tmp = BVH<T>(nbPixels);
+        tmp.freeAfterBuild();
+        tmp.freeAllMemory();
+        checkError(cudaMemcpy(&tmp, replica, sizeof(BVH<T>), cudaMemcpyDeviceToHost));
+        checkError(cudaMemcpy(bvhNodes,       tmp.bvhNodes,       2*nbPixels*sizeof(BVHNode<float>),       cudaMemcpyDeviceToHost));
+        checkError(cudaMemcpy(bboxMemory,     tmp.bboxMemory,     2*nbPixels*sizeof(Bbox<float>),          cudaMemcpyDeviceToHost));
+        checkError(cudaMemcpy(elementsMemory, tmp.elementsMemory, 2*nbPixels*sizeof(Array<Point3<float>>), cudaMemcpyDeviceToHost));
+        checkError(cudaMemcpy(stackMemory,    tmp.stackMemory,    nbPixels*sizeof(ArraySegment<float>),    cudaMemcpyDeviceToHost));
+        checkError(cudaMemcpy(workingBuffer,  tmp.workingBuffer,  nbPixels*sizeof(Point3<float>*),         cudaMemcpyDeviceToHost));
+        nbNodes = tmp.nbNodes;
+        nbLeaves = tmp.nbLeaves;
+        freeGPU(replica);
     }
 
     __host__ void printInfos(){std::cout<<"BVH : \n   Nodes : "<<nbNodes<<"\n   Leaves : "<<nbLeaves<<'\n';}
@@ -78,11 +124,11 @@ public:
         return 1;
     }
 
-    __host__ __device__ void build(Array<Point3<T>*>& points) {
+    __host__ __device__ void build(Array2D<Point3<T>*>& points) {
         const float margin = TILE_SIZE/2;
 
-        int BVHNodeCounter = 0;
-        int bboxCounter = 0;
+        unsigned int BVHNodeCounter = 0;
+        unsigned int bboxCounter = 0;
 
         Stack<T> stack = Stack<T>{stackMemory, 0};
 
@@ -115,14 +161,11 @@ public:
                 stack.push(ArraySegment<T>{middle, curSegment.tail, curSegment.node->right});
             }
         }
-
-        free(stackMemory);
-        free(workingBuffer);
     }
 
 private:
 
-    const bool useGPU;
+    const unsigned int nbPixels;
     unsigned int nbNodes = 0;
     unsigned int nbLeaves = 0;
     const unsigned int bboxMaxSize = 5;

@@ -6,12 +6,12 @@
 #include "tracer/Tracer.cuh"
 
 int main(){
-    const bool USE_GPU = true;
+    const bool useGPU = true;
     const bool PRINT_INFOS = true;
     const char* filename = "data/input_small.tif";
     const char* outputFilename = "data/output.tif";
 
-    const unsigned int RAYS_PER_POINT = 128;
+    const unsigned int RAYS_PER_POINT = 64;
     const float pixelSize = 0.5;
 
     Raster raster = Raster(filename, outputFilename);
@@ -25,14 +25,14 @@ int main(){
     Array2D<float> data(raster.getWidth(), raster.getHeight());
     raster.readData(data.begin());
 
-    Tracer tracer = Tracer(data, pixelSize, USE_GPU);
+    Tracer tracer = Tracer(data, pixelSize);
 
     std::cout << "Building BVH...\n";
-    tracer.init(true);
+    tracer.init(useGPU, true);
     std::cout << "BVH built\n";
 
     std::cout << "Start tracing...\n";
-    tracer.trace(RAYS_PER_POINT);
+    tracer.trace(useGPU, RAYS_PER_POINT);
     std::cout << "Tracing finished...\n";
 
     raster.writeData(data.begin());
