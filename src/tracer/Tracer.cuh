@@ -16,7 +16,6 @@ private:
     const float pixelSize;
     const bool useGPU;
 
-
     BVH<float>* bvh = nullptr; 
     Array2D<float>& data;
     Point3<float>* const points;

@@ -24,6 +24,11 @@ void freeGPU(void* const memory){
     checkError(cudaFree(memory));
 }
 
+void syncGPU(){
+    checkError(cudaGetLastError());
+    checkError(cudaDeviceSynchronize());
+}
+
 void check_error(cudaError_t result, const char* const func, const char* const file, const int line) {
     if (result) {
         unsigned int res = static_cast<unsigned int>(result);

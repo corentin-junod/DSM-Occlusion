@@ -12,5 +12,7 @@ void* allocGPU(const unsigned int size);
 void freeMemory(void* const memory, const bool useGPU);
 void freeGPU(void* memory);
 
+void syncGPU();
+
 void check_error(cudaError_t result, const char* const func, const char* const file, const int line);
 void printDevicesInfos();
