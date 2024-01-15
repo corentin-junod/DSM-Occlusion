@@ -19,6 +19,6 @@ private:
     
     BVH<float>*     bvh; 
     Array2D<float>& data;
-    Point3<float>*  points;
+    Array2D<Point3<float>>  points;
     curandState*    randomState = nullptr;
 };

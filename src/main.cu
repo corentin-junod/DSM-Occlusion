@@ -1,6 +1,5 @@
 #include <iostream>
 
-#include "array/Array.cuh"
 #include "utils/utils.cuh"
 #include "IO/Raster.h"
 #include "tracer/Tracer.cuh"
@@ -8,7 +7,7 @@
 int main(){
     const bool useGPU = true;
     const bool PRINT_INFOS = true;
-    const char* filename = "data/input_small.tif";
+    const char* filename = "data/input.tif";
     const char* outputFilename = "data/output.tif";
 
     const unsigned int RAYS_PER_POINT = 64;

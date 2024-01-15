@@ -2,7 +2,6 @@
 
 #include "Point3.cuh"
 #include "Ray.cuh"
-#include "../array/Array.cuh"
 
 #include <iostream>
 

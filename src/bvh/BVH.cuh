@@ -11,11 +11,12 @@
 
 template<typename T>
 struct BVHNode{
-    Bbox<T>* bbox;
-    BVHNode* left;
-    BVHNode* right;
-    Array<Point3<T>>* elements;
-    __host__ __device__ BVHNode() : bbox(nullptr), left(nullptr), right(nullptr), elements(nullptr) {}
+    int bboxIndex;
+    int leftIndex;
+    int rightIndex;
+    int elementsIndex;
+    int nbElements;
+    __host__ __device__ BVHNode() : bboxIndex(-1), leftIndex(-1), rightIndex(-1), elementsIndex(-1), nbElements(0) {}
 };
 
 template <typename T>
@@ -41,7 +42,7 @@ public:
     __host__ BVH(const unsigned int nbPixels): nbPixels(nbPixels) {
         bvhNodes       = (BVHNode<float>*)       calloc(2*nbPixels, sizeof(BVHNode<float>));
         bboxMemory     = (Bbox<float>*)          calloc(2*nbPixels, sizeof(Bbox<float>));
-        elementsMemory = (Array<Point3<float>>*) calloc(2*nbPixels, sizeof(Array<Point3<float>>));
+        elementsMemory = (Point3<float>*)        calloc(2*nbPixels, sizeof(Point3<float>)); // could be 1"nbPixels
         stackMemory    = (ArraySegment<float>*)  calloc(nbPixels,   sizeof(ArraySegment<float>));
         workingBuffer  = (Point3<float>**)       calloc(nbPixels,   sizeof(Point3<float>*));
     }
@@ -49,6 +50,8 @@ public:
     __host__ void freeAfterBuild(){
         free(stackMemory);
         free(workingBuffer);
+        stackMemory   = nullptr;
+        workingBuffer = nullptr;
     }
     
     __host__ void freeAllMemory(){
@@ -58,17 +61,25 @@ public:
     }
 
     __host__ BVH<T>* toGPU() const {
-        BVHNode<float>*       bvhNodesGPU       = (BVHNode<float>*)       allocGPU(2*nbPixels*sizeof(BVHNode<float>));
-        Bbox<float>*          bboxMemoryGPU     = (Bbox<float>*)          allocGPU(2*nbPixels*sizeof(Bbox<float>));
-        Array<Point3<float>>* elementsMemoryGPU = (Array<Point3<float>>*) allocGPU(2*nbPixels*sizeof(Array<Point3<float>>));
-        ArraySegment<float>*  stackMemoryGPU    = (ArraySegment<float>*)  allocGPU(nbPixels*sizeof(ArraySegment<float>));
-        Point3<float>**       workingBufferGPU  = (Point3<float>**)       allocGPU(nbPixels*sizeof(Point3<float>*));
-
+        BVHNode<float>*  bvhNodesGPU       = (BVHNode<float>*)       allocGPU(2*nbPixels, sizeof(BVHNode<float>));
+        Bbox<float>*     bboxMemoryGPU     = (Bbox<float>*)          allocGPU(2*nbPixels, sizeof(Bbox<float>));
+        Point3<float>*   elementsMemoryGPU = (Point3<float>*) allocGPU(2*nbPixels, sizeof(Point3<float>));
+        
         checkError(cudaMemcpy(bvhNodesGPU,       bvhNodes,       2*nbPixels*sizeof(BVHNode<float>),       cudaMemcpyHostToDevice));
         checkError(cudaMemcpy(bboxMemoryGPU,     bboxMemory,     2*nbPixels*sizeof(Bbox<float>),          cudaMemcpyHostToDevice));
-        checkError(cudaMemcpy(elementsMemoryGPU, elementsMemory, 2*nbPixels*sizeof(Array<Point3<float>>), cudaMemcpyHostToDevice));
-        checkError(cudaMemcpy(stackMemoryGPU,    stackMemory,    nbPixels*sizeof(ArraySegment<float>),    cudaMemcpyHostToDevice));
-        checkError(cudaMemcpy(workingBufferGPU,  workingBuffer,  nbPixels*sizeof(Point3<float>*),         cudaMemcpyHostToDevice));
+        checkError(cudaMemcpy(elementsMemoryGPU, elementsMemory, 2*nbPixels*sizeof(Point3<float>), cudaMemcpyHostToDevice));
+
+        ArraySegment<float>* stackMemoryGPU = nullptr;
+        if(stackMemory != nullptr){
+            stackMemoryGPU    = (ArraySegment<float>*)  allocGPU(nbPixels,   sizeof(ArraySegment<float>));
+            checkError(cudaMemcpy(stackMemoryGPU, stackMemory, nbPixels*sizeof(ArraySegment<float>), cudaMemcpyHostToDevice));
+        }
+
+        Point3<float>** workingBufferGPU = nullptr;
+        if(workingBuffer != nullptr){
+            workingBufferGPU = (Point3<float>**) allocGPU(nbPixels, sizeof(Point3<float>*));
+            checkError(cudaMemcpy(workingBufferGPU, workingBuffer, nbPixels*sizeof(Point3<float>*), cudaMemcpyHostToDevice));
+        }
 
         BVH<T> tmp = BVH<T>(nbPixels);
         tmp.freeAfterBuild();
@@ -90,15 +101,27 @@ public:
         checkError(cudaMemcpy(&tmp, replica, sizeof(BVH<T>), cudaMemcpyDeviceToHost));
         checkError(cudaMemcpy(bvhNodes,       tmp.bvhNodes,       2*nbPixels*sizeof(BVHNode<float>),       cudaMemcpyDeviceToHost));
         checkError(cudaMemcpy(bboxMemory,     tmp.bboxMemory,     2*nbPixels*sizeof(Bbox<float>),          cudaMemcpyDeviceToHost));
-        checkError(cudaMemcpy(elementsMemory, tmp.elementsMemory, 2*nbPixels*sizeof(Array<Point3<float>>), cudaMemcpyDeviceToHost));
-        checkError(cudaMemcpy(stackMemory,    tmp.stackMemory,    nbPixels*sizeof(ArraySegment<float>),    cudaMemcpyDeviceToHost));
-        checkError(cudaMemcpy(workingBuffer,  tmp.workingBuffer,  nbPixels*sizeof(Point3<float>*),         cudaMemcpyDeviceToHost));
+        checkError(cudaMemcpy(elementsMemory, tmp.elementsMemory, 2*nbPixels*sizeof(Point3<float>), cudaMemcpyDeviceToHost));
+        
+        freeGPU(tmp.bvhNodes);
+        freeGPU(tmp.bboxMemory);
+        freeGPU(tmp.elementsMemory);
+
+        if(stackMemory != nullptr){
+            checkError(cudaMemcpy(stackMemory, tmp.stackMemory, nbPixels*sizeof(ArraySegment<float>), cudaMemcpyDeviceToHost));
+            freeGPU(tmp.stackMemory);
+        }
+        if(workingBuffer != nullptr){
+            checkError(cudaMemcpy(workingBuffer, tmp.workingBuffer, nbPixels*sizeof(Point3<float>*), cudaMemcpyDeviceToHost));
+            freeGPU(tmp.workingBuffer);
+        }
+
         nbNodes = tmp.nbNodes;
-        nbLeaves = tmp.nbLeaves;
+
         freeGPU(replica);
     }
 
-    __host__ void printInfos(){std::cout<<"BVH : \n   Nodes : "<<nbNodes<<"\n   Leaves : "<<nbLeaves<<'\n';}
+    __host__ void printInfos(){std::cout<<"BVH : \n   Nodes : "<<nbNodes<<"\n";}
     __host__ __device__ int size() const {return nbNodes;}
 
     __host__ __device__ float getLighting(const Ray<T> ray, BVHNode<T>** buffer) const { 
@@ -109,16 +132,17 @@ public:
         while(bufferSize > 0){
             BVHNode<T>* node = buffer[--bufferSize];
 
-            if(node != nullptr && node->bbox->intersects(ray)){
-                if(node->elements != nullptr){
-                    for(const Point3<T>& point : *node->elements){
-                        if(point != ray.getOrigin() && BVH::intersectBox(point, ray, TILE_SIZE/2)){
+            if(node != nullptr && bboxMemory[node->bboxIndex].intersects(ray)){
+                //if(node->elementsIndex != -1){
+                    for(int i=0; i<node->nbElements; i++){
+                        const Point3<T> point = elementsMemory[node->elementsIndex+i];
+                        if(point != ray.getOrigin() && intersectBox(point, ray, TILE_SIZE/2)){
                             return 0;
                         }
                     }
-                }
-                buffer[bufferSize++] = node->left;
-                buffer[bufferSize++] = node->right;
+                //}
+                buffer[bufferSize++] = node->leftIndex<0 ?  nullptr : &bvhNodes[node->leftIndex];
+                buffer[bufferSize++] = node->rightIndex<0 ? nullptr : &bvhNodes[node->rightIndex];
             }
         }
         return 1;
@@ -129,6 +153,7 @@ public:
 
         unsigned int BVHNodeCounter = 0;
         unsigned int bboxCounter = 0;
+        unsigned int elementsCounter = 0;
 
         Stack<T> stack = Stack<T>{stackMemory, 0};
 
@@ -145,20 +170,27 @@ public:
 
             Bbox<T>* bbox = new (&bboxMemory[bboxCounter++]) Bbox<T>();
             bbox->setEnglobing(curSegment.head, curSize, margin);
-            curSegment.node->bbox = bbox;
+            curSegment.node->bboxIndex = bboxCounter;
 
             if(curSize < bboxMaxSize){
-                curSegment.node->elements = new (&elementsMemory[nbLeaves++]) Array<Point3<T>>(*curSegment.head, curSize);
+                for(int i=0; i<curSize; i++){
+                    elementsMemory[elementsCounter+i] = *(curSegment.head[i]);
+                }
+                curSegment.node->elementsIndex = elementsCounter;
+                curSegment.node->nbElements = curSize;
+                elementsCounter += curSize;
             }else{
 
                 const unsigned int splitIndex = BVH::split(curSegment.head, curSize, bbox);
                 Point3<T>** middle = &(curSegment.head[splitIndex]);
 
-                curSegment.node->left  = new (&bvhNodes[BVHNodeCounter++]) BVHNode<T>();
-                curSegment.node->right = new (&bvhNodes[BVHNodeCounter++]) BVHNode<T>();
+                BVHNode<T>* leftNode = new (&bvhNodes[BVHNodeCounter++]) BVHNode<T>();
+                curSegment.node->leftIndex  = BVHNodeCounter;
+                BVHNode<T>* rightNode = new (&bvhNodes[BVHNodeCounter++]) BVHNode<T>();
+                curSegment.node->rightIndex = BVHNodeCounter;
 
-                stack.push(ArraySegment<T>{curSegment.head, middle, curSegment.node->left});
-                stack.push(ArraySegment<T>{middle, curSegment.tail, curSegment.node->right});
+                stack.push(ArraySegment<T>{curSegment.head, middle, leftNode});
+                stack.push(ArraySegment<T>{middle, curSegment.tail, rightNode});
             }
         }
     }
@@ -167,14 +199,13 @@ private:
 
     const unsigned int nbPixels;
     unsigned int nbNodes = 0;
-    unsigned int nbLeaves = 0;
     const unsigned int bboxMaxSize = 5;
 
-    BVHNode<float>*       bvhNodes;
-    Bbox<float>*          bboxMemory;
-    Array<Point3<float>>* elementsMemory;
-    ArraySegment<float>*  stackMemory;
-    Point3<float>**       workingBuffer;
+    BVHNode<float>*      bvhNodes;
+    Bbox<float>*         bboxMemory;
+    Point3<float>*       elementsMemory;
+    ArraySegment<float>* stackMemory;
+    Point3<float>**      workingBuffer;
 
 
     __host__ __device__ bool intersectBox(const Point3<T>& top, const Ray<T>& ray, const float margin) const {
