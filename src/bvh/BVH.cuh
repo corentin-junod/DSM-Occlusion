@@ -9,14 +9,16 @@
 
 #define TILE_SIZE 0.5 
 
+constexpr unsigned int ELEMENTS_MAX_SIZE = 5;
+
 template<typename T>
 struct BVHNode{
-    int bboxIndex;
+    unsigned int bboxIndex;
     int leftIndex;
     int rightIndex;
-    int elementsIndex;
-    int nbElements;
-    __host__ __device__ BVHNode() : bboxIndex(-1), leftIndex(-1), rightIndex(-1), elementsIndex(-1), nbElements(0) {}
+    unsigned int elementsIndex;
+    unsigned int nbElements;
+    __host__ __device__ BVHNode() : bboxIndex(0), leftIndex(-1), rightIndex(-1), elementsIndex(0), nbElements(0) {}
 };
 
 template <typename T>
@@ -131,18 +133,15 @@ public:
 
         while(bufferSize > 0){
             BVHNode<T>* node = buffer[--bufferSize];
-
             if(node != nullptr && bboxMemory[node->bboxIndex].intersects(ray)){
-                //if(node->elementsIndex != -1){
-                    for(int i=0; i<node->nbElements; i++){
-                        const Point3<T> point = elementsMemory[node->elementsIndex+i];
-                        if(point != ray.getOrigin() && intersectBox(point, ray, TILE_SIZE/2)){
-                            return 0;
-                        }
+                for(int i=0; i<node->nbElements; i++){
+                    const Point3<T> point = elementsMemory[node->elementsIndex+i];
+                    if(point != ray.getOrigin() && intersectBox(point, ray, TILE_SIZE/2)){
+                        return 0;
                     }
-                //}
-                buffer[bufferSize++] = node->leftIndex<0 ?  nullptr : &bvhNodes[node->leftIndex];
-                buffer[bufferSize++] = node->rightIndex<0 ? nullptr : &bvhNodes[node->rightIndex];
+                }
+                buffer[bufferSize++] = node->leftIndex < 0 ?  nullptr : &bvhNodes[node->leftIndex];
+                buffer[bufferSize++] = node->rightIndex < 0 ? nullptr : &bvhNodes[node->rightIndex];
             }
         }
         return 1;
@@ -151,8 +150,8 @@ public:
     __host__ __device__ void build(Array2D<Point3<T>*>& points) {
         const float margin = TILE_SIZE/2;
 
-        unsigned int BVHNodeCounter = 0;
-        unsigned int bboxCounter = 0;
+        unsigned int BVHNodeCounter  = 0;
+        unsigned int bboxCounter     = 0;
         unsigned int elementsCounter = 0;
 
         Stack<T> stack = Stack<T>{stackMemory, 0};
@@ -168,11 +167,11 @@ public:
             ArraySegment curSegment = stack.pop();
             const unsigned int curSize = curSegment.tail-curSegment.head;
 
+            curSegment.node->bboxIndex = bboxCounter;
             Bbox<T>* bbox = new (&bboxMemory[bboxCounter++]) Bbox<T>();
             bbox->setEnglobing(curSegment.head, curSize, margin);
-            curSegment.node->bboxIndex = bboxCounter;
-
-            if(curSize < bboxMaxSize){
+            
+            if(curSize < ELEMENTS_MAX_SIZE){
                 for(int i=0; i<curSize; i++){
                     elementsMemory[elementsCounter+i] = *(curSegment.head[i]);
                 }
@@ -184,10 +183,11 @@ public:
                 const unsigned int splitIndex = BVH::split(curSegment.head, curSize, bbox);
                 Point3<T>** middle = &(curSegment.head[splitIndex]);
 
-                BVHNode<T>* leftNode = new (&bvhNodes[BVHNodeCounter++]) BVHNode<T>();
                 curSegment.node->leftIndex  = BVHNodeCounter;
-                BVHNode<T>* rightNode = new (&bvhNodes[BVHNodeCounter++]) BVHNode<T>();
+                BVHNode<T>* leftNode = new (&bvhNodes[BVHNodeCounter++]) BVHNode<T>();
                 curSegment.node->rightIndex = BVHNodeCounter;
+                BVHNode<T>* rightNode = new (&bvhNodes[BVHNodeCounter++]) BVHNode<T>();
+                
 
                 stack.push(ArraySegment<T>{curSegment.head, middle, leftNode});
                 stack.push(ArraySegment<T>{middle, curSegment.tail, rightNode});
@@ -199,7 +199,6 @@ private:
 
     const unsigned int nbPixels;
     unsigned int nbNodes = 0;
-    const unsigned int bboxMaxSize = 5;
 
     BVHNode<float>*      bvhNodes;
     Bbox<float>*         bboxMemory;
