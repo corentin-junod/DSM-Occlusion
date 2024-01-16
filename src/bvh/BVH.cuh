@@ -2,8 +2,9 @@
 
 #include "../primitives/Bbox.cuh"
 #include "../primitives/Ray.cuh"
-#include "../array/Array.cuh"
 #include "../utils/utils.cuh"
+#include "../array/Array.cuh"
+
 #include <cstdio>
 #include <ostream>
 
@@ -63,13 +64,13 @@ public:
     }
 
     __host__ BVH<T>* toGPU() const {
-        BVHNode<float>*  bvhNodesGPU       = (BVHNode<float>*)       allocGPU(2*nbPixels, sizeof(BVHNode<float>));
-        Bbox<float>*     bboxMemoryGPU     = (Bbox<float>*)          allocGPU(2*nbPixels, sizeof(Bbox<float>));
-        Point3<float>*   elementsMemoryGPU = (Point3<float>*) allocGPU(2*nbPixels, sizeof(Point3<float>));
+        BVHNode<float>*  bvhNodesGPU       = (BVHNode<float>*) allocGPU(2*nbPixels, sizeof(BVHNode<float>));
+        Bbox<float>*     bboxMemoryGPU     = (Bbox<float>*)    allocGPU(2*nbPixels, sizeof(Bbox<float>));
+        Point3<float>*   elementsMemoryGPU = (Point3<float>*)  allocGPU(2*nbPixels, sizeof(Point3<float>));
         
-        checkError(cudaMemcpy(bvhNodesGPU,       bvhNodes,       2*nbPixels*sizeof(BVHNode<float>),       cudaMemcpyHostToDevice));
-        checkError(cudaMemcpy(bboxMemoryGPU,     bboxMemory,     2*nbPixels*sizeof(Bbox<float>),          cudaMemcpyHostToDevice));
-        checkError(cudaMemcpy(elementsMemoryGPU, elementsMemory, 2*nbPixels*sizeof(Point3<float>), cudaMemcpyHostToDevice));
+        checkError(cudaMemcpy(bvhNodesGPU,       bvhNodes,       2*nbPixels*sizeof(BVHNode<float>), cudaMemcpyHostToDevice));
+        checkError(cudaMemcpy(bboxMemoryGPU,     bboxMemory,     2*nbPixels*sizeof(Bbox<float>),    cudaMemcpyHostToDevice));
+        checkError(cudaMemcpy(elementsMemoryGPU, elementsMemory, 2*nbPixels*sizeof(Point3<float>),  cudaMemcpyHostToDevice));
 
         ArraySegment<float>* stackMemoryGPU = nullptr;
         if(stackMemory != nullptr){
@@ -126,8 +127,8 @@ public:
     __host__ void printInfos(){std::cout<<"BVH : \n   Nodes : "<<nbNodes<<"\n";}
     __host__ __device__ int size() const {return nbNodes;}
 
-    __host__ __device__ float getLighting(const Ray<T> ray, BVHNode<T>** buffer) const { 
-        ray.getDirection().normalize();
+
+    __host__ __device__ float getLighting(const Ray<T>& ray, BVHNode<T>** buffer) const {
         unsigned int bufferSize = 0;
         buffer[bufferSize++] = &bvhNodes[0];
 
@@ -151,24 +152,19 @@ public:
         const float margin = TILE_SIZE/2;
 
         unsigned int BVHNodeCounter  = 0;
-        unsigned int bboxCounter     = 0;
         unsigned int elementsCounter = 0;
 
         Stack<T> stack = Stack<T>{stackMemory, 0};
 
         BVHNode<T>* root = new (&bvhNodes[BVHNodeCounter++]) BVHNode<T>();
-
-        Point3<T>** begin = points.begin();
-        Point3<T>** end   = points.end();
-        stack.push(ArraySegment<T>{begin, end, root});
+        stack.push(ArraySegment<T>{points.begin(), points.end(), root});
         
         while(stack.size > 0){
-            nbNodes++;
             ArraySegment curSegment = stack.pop();
             const unsigned int curSize = curSegment.tail-curSegment.head;
 
-            curSegment.node->bboxIndex = bboxCounter;
-            Bbox<T>* bbox = new (&bboxMemory[bboxCounter++]) Bbox<T>();
+            curSegment.node->bboxIndex = nbNodes;
+            Bbox<T>* bbox = new (&bboxMemory[nbNodes]) Bbox<T>();
             bbox->setEnglobing(curSegment.head, curSize, margin);
             
             if(curSize < ELEMENTS_MAX_SIZE){
@@ -188,10 +184,11 @@ public:
                 curSegment.node->rightIndex = BVHNodeCounter;
                 BVHNode<T>* rightNode = new (&bvhNodes[BVHNodeCounter++]) BVHNode<T>();
                 
-
                 stack.push(ArraySegment<T>{curSegment.head, middle, leftNode});
                 stack.push(ArraySegment<T>{middle, curSegment.tail, rightNode});
             }
+
+            nbNodes++;
         }
     }
 
@@ -255,6 +252,7 @@ private:
     }
 
     __host__ __device__ bool intersectSphere(const Point3<T>& top, const Ray<T>& ray, const float radius) const {
+        ray.getDirection().normalize();
         const Point3<T> center = Point3<T>(top.x, top.y, top.z-TILE_SIZE/2);
         const T radius_squared = radius*radius;
         const Vec3<T> d_co = ray.getOrigin() - center;

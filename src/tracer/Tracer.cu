@@ -1,5 +1,7 @@
 #include "Tracer.cuh"
+
 #include "../utils/utils.cuh"
+#include "../array/Array.cuh"
 
 #include <random>
 
@@ -49,7 +51,7 @@ void render(Array2D<float>& data, const unsigned int index, const unsigned int r
 }
 
 __global__
-void renderGPU(Array2D<float>& data, Array2D<Point3<float>>& points, BVH<float>& bvh, const unsigned int raysPerPoint, curandState* const rndState, BVHNode<float>** traceBuffer, const unsigned int traceBufferSize){
+void renderGPU(Array2D<float>& data, Array2D<Point3<float>>& points, BVH<float>& bvh, const unsigned int raysPerPoint, curandState* const rndState, unsigned int bufferSize){
     const int x = threadIdx.x + blockIdx.x * blockDim.x;
     const int y = threadIdx.y + blockIdx.y * blockDim.y;
     if(x>=data.width() || y>=data.height()) return;
@@ -57,6 +59,12 @@ void renderGPU(Array2D<float>& data, Array2D<Point3<float>>& points, BVH<float>&
 
     curandState localRndState = rndState[index];
     curand_init(SEED, index, 0, &localRndState);
+
+    extern __shared__ BVHNode<float>* traceBuffer[];
+    const unsigned int traceBufferOffset = bufferSize*(threadIdx.x+8*threadIdx.y);
+
+    int tx = threadIdx.x;
+    int ty = threadIdx.y;
 
     Point3<float> origin  = points[index];
     Vec3<float> direction = Vec3<float>(0,0,0);
@@ -68,7 +76,7 @@ void renderGPU(Array2D<float>& data, Array2D<Point3<float>>& points, BVH<float>&
         const float rnd2 = curand_uniform(&localRndState);
         const unsigned int segmentNumber = i%NB_STRATIFIED_DIRS;
         const float cosThetaOverPdf = ray.getDirection().setRandomInHemisphereCosine( NB_STRATIFIED_DIRS , segmentNumber, rnd1, rnd2);
-        result += cosThetaOverPdf*bvh.getLighting(ray, &traceBuffer[index*traceBufferSize]);
+        result += cosThetaOverPdf*bvh.getLighting(ray, &traceBuffer[traceBufferOffset]);
     }
     data[index] = (result/raysPerPoint)*(1/PI); // Diffuse BSDF
 }
@@ -76,7 +84,8 @@ void renderGPU(Array2D<float>& data, Array2D<Point3<float>>& points, BVH<float>&
 
 Tracer::Tracer(Array2D<float>& data, const float pixelSize): 
     data(data), width(data.width()), height(data.height()), pixelSize(pixelSize), 
-    points(Array2D<Point3<float>>(width, height)){}
+    points(Array2D<Point3<float>>(width, height)),
+    bvh(new BVH<float>(width*height)){}
 
 Tracer::~Tracer(){
     cudaFree(randomState);
@@ -86,7 +95,6 @@ Tracer::~Tracer(){
 
 void Tracer::init(const bool useGPU, const bool prinInfos){
     useGPUInit = useGPU;
-    bvh = new BVH<float>(width*height);
     randomState = (curandState*) allocGPU(width*height, sizeof(curandState)); // TODO this should also be initialized when on CPU
     Array2D<Point3<float>*> pointsPointers(data.width(), data.height());
 
@@ -111,8 +119,7 @@ void Tracer::init(const bool useGPU, const bool prinInfos){
 
 void Tracer::trace(const bool useGPU, const unsigned int raysPerPoint){
     useGPURender = useGPU;
-    const int traceBufferSizePerThread = std::log2(bvh->size())+1;
-    BVHNode<float>** traceBuffer = (BVHNode<float>**) allocMemory(width*height*traceBufferSizePerThread, sizeof(BVHNode<float>*), useGPU);
+    const unsigned int traceBufferSizePerThread = std::log2(bvh->size())+1;
 
     if(useGPU){
         const dim3 blocks(width/threads.x+1, height/threads.y+1);
@@ -120,12 +127,16 @@ void Tracer::trace(const bool useGPU, const unsigned int raysPerPoint){
         Array2D<Point3<float>>* pointsGPU = points.toGPU();
         BVH<float>* bvhGPU = bvh->toGPU();
         Array2D<float>* dataGPU = data.toGPU();
-        renderGPU<<<blocks, threads>>>(*dataGPU, *pointsGPU, *bvhGPU, raysPerPoint, randomState, traceBuffer, traceBufferSizePerThread);
+        const unsigned int sharedMem = threads.x*threads.y*traceBufferSizePerThread*sizeof(BVHNode<float>*);
+        std::cout << sharedMem << '\n';
+        renderGPU<<<blocks, threads, sharedMem>>>(*dataGPU, *pointsGPU, *bvhGPU, raysPerPoint, randomState, traceBufferSizePerThread);
         syncGPU();
         data.fromGPU(dataGPU);
         bvh->fromGPU(bvhGPU);
         points.fromGPU(pointsGPU);
     }else{
+        BVHNode<float>** traceBuffer = (BVHNode<float>**) allocMemory(width*height*traceBufferSizePerThread, sizeof(BVHNode<float>*), useGPU);
+
         float progress = 0;
         float nextProgress = 0.1;
 
@@ -143,6 +154,6 @@ void Tracer::trace(const bool useGPU, const unsigned int raysPerPoint){
                 nextProgress += 0.1;
             }
         }
+        freeMemory(traceBuffer, useGPU);
     }
-    freeMemory(traceBuffer, useGPU);
 }

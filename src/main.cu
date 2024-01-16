@@ -10,7 +10,7 @@ int main(){
     const char* filename = "data/input.tif";
     const char* outputFilename = "data/output.tif";
 
-    const unsigned int RAYS_PER_POINT = 64;
+    const unsigned int RAYS_PER_POINT = 16;
     const float pixelSize = 0.5;
 
     Raster raster = Raster(filename, outputFilename);
@@ -27,7 +27,7 @@ int main(){
     Tracer tracer = Tracer(data, pixelSize);
 
     std::cout << "Building BVH...\n";
-    tracer.init(useGPU, true);
+    tracer.init(false, true);
     std::cout << "BVH built\n";
 
     std::cout << "Start tracing...\n";
