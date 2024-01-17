@@ -137,7 +137,7 @@ public:
             if(node != nullptr && bboxMemory[node->bboxIndex].intersects(ray)){
                 for(int i=0; i<node->nbElements; i++){
                     const Point3<T> point = elementsMemory[node->elementsIndex+i];
-                    if(point != ray.getOrigin() /*&& intersectBox(point, ray, TILE_SIZE/2)*/){
+                    if(point != ray.getOrigin() && intersectBox(point, ray, TILE_SIZE/2)){
                         return 0;
                     }
                 }
