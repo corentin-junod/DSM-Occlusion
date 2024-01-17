@@ -137,12 +137,18 @@ public:
             if(node != nullptr && bboxMemory[node->bboxIndex].intersects(ray)){
                 for(int i=0; i<node->nbElements; i++){
                     const Point3<T> point = elementsMemory[node->elementsIndex+i];
-                    if(point != ray.getOrigin() && intersectBox(point, ray, TILE_SIZE/2)){
+                    if(point != ray.getOrigin() /*&& intersectBox(point, ray, TILE_SIZE/2)*/){
                         return 0;
                     }
                 }
-                buffer[bufferSize++] = node->leftIndex < 0 ?  nullptr : &bvhNodes[node->leftIndex];
-                buffer[bufferSize++] = node->rightIndex < 0 ? nullptr : &bvhNodes[node->rightIndex];
+
+                if(node->leftIndex >= 0){
+                    buffer[bufferSize++] = &bvhNodes[node->leftIndex];
+                }
+
+                if(node->rightIndex >= 0){
+                    buffer[bufferSize++] = &bvhNodes[node->rightIndex];
+                }
             }
         }
         return 1;

@@ -63,9 +63,6 @@ void renderGPU(Array2D<float>& data, Array2D<Point3<float>>& points, BVH<float>&
     extern __shared__ BVHNode<float>* traceBuffer[];
     const unsigned int traceBufferOffset = bufferSize*(threadIdx.x+8*threadIdx.y);
 
-    int tx = threadIdx.x;
-    int ty = threadIdx.y;
-
     Point3<float> origin  = points[index];
     Vec3<float> direction = Vec3<float>(0,0,0);
     Ray<float> ray        = Ray<float>(origin, direction);
@@ -128,7 +125,6 @@ void Tracer::trace(const bool useGPU, const unsigned int raysPerPoint){
         BVH<float>* bvhGPU = bvh->toGPU();
         Array2D<float>* dataGPU = data.toGPU();
         const unsigned int sharedMem = threads.x*threads.y*traceBufferSizePerThread*sizeof(BVHNode<float>*);
-        std::cout << sharedMem << '\n';
         renderGPU<<<blocks, threads, sharedMem>>>(*dataGPU, *pointsGPU, *bvhGPU, raysPerPoint, randomState, traceBufferSizePerThread);
         syncGPU();
         data.fromGPU(dataGPU);

@@ -10,7 +10,7 @@ int main(){
     const char* filename = "data/input.tif";
     const char* outputFilename = "data/output.tif";
 
-    const unsigned int RAYS_PER_POINT = 16;
+    const unsigned int RAYS_PER_POINT = 256;
     const float pixelSize = 0.5;
 
     Raster raster = Raster(filename, outputFilename);
