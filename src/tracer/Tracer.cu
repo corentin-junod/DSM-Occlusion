@@ -35,7 +35,7 @@ void initRenderGPU(const Array2D<float>& data, Array2D<Point3<float>>& points, A
 
 
 __host__ 
-void render(Array2D<float>& data, const unsigned int index, const unsigned int raysPerPoint, Array2D<Point3<float>>& points, BVH<float>& bvh, BVHNode<float>** traceBuffer, const unsigned int traceBufferSize){
+void render(Array2D<float>& data, const unsigned int index, const unsigned int raysPerPoint, Array2D<Point3<float>>& points, BVH<float>& bvh, int* traceBuffer, const unsigned int traceBufferSize){
     Point3<float> origin  = points[index];
     Vec3<float> direction = Vec3<float>(0,0,0);
     Ray<float> ray        = Ray<float>(origin, direction);
@@ -60,8 +60,9 @@ void renderGPU(Array2D<float>& data, Array2D<Point3<float>>& points, BVH<float>&
     curandState localRndState = rndState[index];
     curand_init(SEED, index, 0, &localRndState);
 
-    extern __shared__ BVHNode<float>* traceBuffer[];
+    extern __shared__ int traceBuffer[];
     const unsigned int traceBufferOffset = bufferSize*(threadIdx.x+8*threadIdx.y);
+    //__shared__ int newBuffer[21];
 
     Point3<float> origin  = points[index];
     Vec3<float> direction = Vec3<float>(0,0,0);
@@ -124,14 +125,14 @@ void Tracer::trace(const bool useGPU, const unsigned int raysPerPoint){
         Array2D<Point3<float>>* pointsGPU = points.toGPU();
         BVH<float>* bvhGPU = bvh->toGPU();
         Array2D<float>* dataGPU = data.toGPU();
-        const unsigned int sharedMem = threads.x*threads.y*traceBufferSizePerThread*sizeof(BVHNode<float>*);
+        const unsigned int sharedMem = threads.x*threads.y*traceBufferSizePerThread*sizeof(int);
         renderGPU<<<blocks, threads, sharedMem>>>(*dataGPU, *pointsGPU, *bvhGPU, raysPerPoint, randomState, traceBufferSizePerThread);
         syncGPU();
         data.fromGPU(dataGPU);
         bvh->fromGPU(bvhGPU);
         points.fromGPU(pointsGPU);
     }else{
-        BVHNode<float>** traceBuffer = (BVHNode<float>**) allocMemory(width*height*traceBufferSizePerThread, sizeof(BVHNode<float>*), useGPU);
+        int* traceBuffer = (int*) allocMemory(width*height*traceBufferSizePerThread, sizeof(int), useGPU);
 
         float progress = 0;
         float nextProgress = 0.1;

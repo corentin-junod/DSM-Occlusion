@@ -7,18 +7,18 @@
 
 #include <cstdio>
 #include <ostream>
+#include <sys/types.h>
 
 #define TILE_SIZE 0.5 
 
-constexpr unsigned int ELEMENTS_MAX_SIZE = 5;
+constexpr unsigned int ELEMENTS_MAX_SIZE = 5; // Best is between 5 and 10
 
-template<typename T>
 struct BVHNode{
+    unsigned short int nbElements;
+    unsigned int elementsIndex;
     unsigned int bboxIndex;
     int leftIndex;
     int rightIndex;
-    unsigned int elementsIndex;
-    unsigned int nbElements;
     __host__ __device__ BVHNode() : bboxIndex(0), leftIndex(-1), rightIndex(-1), elementsIndex(0), nbElements(0) {}
 };
 
@@ -26,7 +26,7 @@ template <typename T>
 struct ArraySegment{
     Point3<T>** head;
     Point3<T>** tail;
-    BVHNode<T>* node;
+    BVHNode* node;
 };
 
 template <typename T>
@@ -43,7 +43,7 @@ class BVH{
 
 public:
     __host__ BVH(const unsigned int nbPixels): nbPixels(nbPixels) {
-        bvhNodes       = (BVHNode<float>*)       calloc(2*nbPixels, sizeof(BVHNode<float>));
+        bvhNodes       = (BVHNode*)       calloc(2*nbPixels, sizeof(BVHNode));
         bboxMemory     = (Bbox<float>*)          calloc(2*nbPixels, sizeof(Bbox<float>));
         elementsMemory = (Point3<float>*)        calloc(2*nbPixels, sizeof(Point3<float>)); // could be 1"nbPixels
         stackMemory    = (ArraySegment<float>*)  calloc(nbPixels,   sizeof(ArraySegment<float>));
@@ -64,11 +64,11 @@ public:
     }
 
     __host__ BVH<T>* toGPU() const {
-        BVHNode<float>*  bvhNodesGPU       = (BVHNode<float>*) allocGPU(2*nbPixels, sizeof(BVHNode<float>));
+        BVHNode*  bvhNodesGPU       = (BVHNode*) allocGPU(2*nbPixels, sizeof(BVHNode));
         Bbox<float>*     bboxMemoryGPU     = (Bbox<float>*)    allocGPU(2*nbPixels, sizeof(Bbox<float>));
         Point3<float>*   elementsMemoryGPU = (Point3<float>*)  allocGPU(2*nbPixels, sizeof(Point3<float>));
         
-        checkError(cudaMemcpy(bvhNodesGPU,       bvhNodes,       2*nbPixels*sizeof(BVHNode<float>), cudaMemcpyHostToDevice));
+        checkError(cudaMemcpy(bvhNodesGPU,       bvhNodes,       2*nbPixels*sizeof(BVHNode), cudaMemcpyHostToDevice));
         checkError(cudaMemcpy(bboxMemoryGPU,     bboxMemory,     2*nbPixels*sizeof(Bbox<float>),    cudaMemcpyHostToDevice));
         checkError(cudaMemcpy(elementsMemoryGPU, elementsMemory, 2*nbPixels*sizeof(Point3<float>),  cudaMemcpyHostToDevice));
 
@@ -102,7 +102,7 @@ public:
         tmp.freeAfterBuild();
         tmp.freeAllMemory();
         checkError(cudaMemcpy(&tmp, replica, sizeof(BVH<T>), cudaMemcpyDeviceToHost));
-        checkError(cudaMemcpy(bvhNodes,       tmp.bvhNodes,       2*nbPixels*sizeof(BVHNode<float>),       cudaMemcpyDeviceToHost));
+        checkError(cudaMemcpy(bvhNodes,       tmp.bvhNodes,       2*nbPixels*sizeof(BVHNode),       cudaMemcpyDeviceToHost));
         checkError(cudaMemcpy(bboxMemory,     tmp.bboxMemory,     2*nbPixels*sizeof(Bbox<float>),          cudaMemcpyDeviceToHost));
         checkError(cudaMemcpy(elementsMemory, tmp.elementsMemory, 2*nbPixels*sizeof(Point3<float>), cudaMemcpyDeviceToHost));
         
@@ -128,26 +128,28 @@ public:
     __host__ __device__ int size() const {return nbNodes;}
 
 
-    __host__ __device__ float getLighting(const Ray<T>& ray, BVHNode<T>** buffer) const {
-        unsigned int bufferSize = 0;
-        buffer[bufferSize++] = &bvhNodes[0];
+    __host__ __device__ float getLighting(const Ray<T>& ray, int* const buffer) const {
+        unsigned short bufferSize = 0;
+        buffer[bufferSize++] = 0;
 
         while(bufferSize > 0){
-            BVHNode<T>* node = buffer[--bufferSize];
-            if(node != nullptr && bboxMemory[node->bboxIndex].intersects(ray)){
-                for(int i=0; i<node->nbElements; i++){
-                    const Point3<T> point = elementsMemory[node->elementsIndex+i];
-                    if(point != ray.getOrigin() && intersectBox(point, ray, TILE_SIZE/2)){
+            const BVHNode node = bvhNodes[buffer[--bufferSize]];
+            const Point3<T> origin = ray.getOrigin();
+            const Vec3<T> dir = ray.getDirection();
+            if(bboxMemory[node.bboxIndex].intersects(dir, origin)){
+                for(unsigned short i=0; i<node.nbElements; i++){
+                    const Point3<T> point = elementsMemory[node.elementsIndex+i];
+                    if(point != origin && intersectBox(point, dir, origin, TILE_SIZE/2)){
                         return 0;
                     }
                 }
 
-                if(node->leftIndex >= 0){
-                    buffer[bufferSize++] = &bvhNodes[node->leftIndex];
+                if(node.leftIndex >= 0){
+                    buffer[bufferSize++] = node.leftIndex;
                 }
 
-                if(node->rightIndex >= 0){
-                    buffer[bufferSize++] = &bvhNodes[node->rightIndex];
+                if(node.rightIndex >= 0){
+                    buffer[bufferSize++] = node.rightIndex;
                 }
             }
         }
@@ -162,7 +164,7 @@ public:
 
         Stack<T> stack = Stack<T>{stackMemory, 0};
 
-        BVHNode<T>* root = new (&bvhNodes[BVHNodeCounter++]) BVHNode<T>();
+        BVHNode* root = new (&bvhNodes[BVHNodeCounter++]) BVHNode();
         stack.push(ArraySegment<T>{points.begin(), points.end(), root});
         
         while(stack.size > 0){
@@ -186,9 +188,9 @@ public:
                 Point3<T>** middle = &(curSegment.head[splitIndex]);
 
                 curSegment.node->leftIndex  = BVHNodeCounter;
-                BVHNode<T>* leftNode = new (&bvhNodes[BVHNodeCounter++]) BVHNode<T>();
+                BVHNode* leftNode = new (&bvhNodes[BVHNodeCounter++]) BVHNode();
                 curSegment.node->rightIndex = BVHNodeCounter;
-                BVHNode<T>* rightNode = new (&bvhNodes[BVHNodeCounter++]) BVHNode<T>();
+                BVHNode* rightNode = new (&bvhNodes[BVHNodeCounter++]) BVHNode();
                 
                 stack.push(ArraySegment<T>{curSegment.head, middle, leftNode});
                 stack.push(ArraySegment<T>{middle, curSegment.tail, rightNode});
@@ -203,17 +205,14 @@ private:
     const unsigned int nbPixels;
     unsigned int nbNodes = 0;
 
-    BVHNode<float>*      bvhNodes;
+    BVHNode*      bvhNodes;
     Bbox<float>*         bboxMemory;
     Point3<float>*       elementsMemory;
     ArraySegment<float>* stackMemory;
     Point3<float>**      workingBuffer;
 
 
-    __host__ __device__ bool intersectBox(const Point3<T>& top, const Ray<T>& ray, const float margin) const {
-        const Vec3<T>& rayDir = ray.getDirection();
-        const Point3<T>& rayOrigin = ray.getOrigin();
-
+    __host__ __device__ bool intersectBox(const Point3<T>& top, const Vec3<T>& rayDir, const Point3<T>& rayOrigin, const float margin) const {
         float min, max;
 
         const float xInverse = 1 / rayDir.x;
