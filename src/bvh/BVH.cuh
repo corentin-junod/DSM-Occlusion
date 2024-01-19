@@ -7,7 +7,6 @@
 
 #include <cstdio>
 #include <ostream>
-#include <sys/types.h>
 
 #define TILE_SIZE 0.5 
 
@@ -125,10 +124,11 @@ public:
         unsigned short bufferSize = 0;
         buffer[bufferSize++] = 0;
 
+        const Point3<T> origin = ray.getOrigin();
+        const Vec3<T> dir = ray.getDirection();
+
         while(bufferSize > 0){
             const BVHNode node = bvhNodes[buffer[--bufferSize]];
-            const Point3<T> origin = ray.getOrigin();
-            const Vec3<T> dir = ray.getDirection();
             if(node.bbox.intersects(dir, origin)){
                 for(unsigned short i=0; i<node.nbElements; i++){
                     const Point3<T> point = elementsMemory[node.elementsIndex+i];
