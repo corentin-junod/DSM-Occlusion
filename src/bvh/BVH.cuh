@@ -16,10 +16,10 @@ constexpr unsigned int ELEMENTS_MAX_SIZE = 5; // Best is between 5 and 10
 struct BVHNode{
     unsigned short int nbElements;
     unsigned int elementsIndex;
-    unsigned int bboxIndex;
+    Bbox<float> bbox;
     int leftIndex;
     int rightIndex;
-    __host__ __device__ BVHNode() : bboxIndex(0), leftIndex(-1), rightIndex(-1), elementsIndex(0), nbElements(0) {}
+    __host__ __device__ BVHNode() : bbox(Bbox<float>()), leftIndex(-1), rightIndex(-1), elementsIndex(0), nbElements(0) {}
 };
 
 template <typename T>
@@ -44,7 +44,6 @@ class BVH{
 public:
     __host__ BVH(const unsigned int nbPixels): nbPixels(nbPixels) {
         bvhNodes       = (BVHNode*)       calloc(2*nbPixels, sizeof(BVHNode));
-        bboxMemory     = (Bbox<float>*)          calloc(2*nbPixels, sizeof(Bbox<float>));
         elementsMemory = (Point3<float>*)        calloc(2*nbPixels, sizeof(Point3<float>)); // could be 1"nbPixels
         stackMemory    = (ArraySegment<float>*)  calloc(nbPixels,   sizeof(ArraySegment<float>));
         workingBuffer  = (Point3<float>**)       calloc(nbPixels,   sizeof(Point3<float>*));
@@ -59,17 +58,14 @@ public:
     
     __host__ void freeAllMemory(){
         free(elementsMemory);
-        free(bboxMemory);
         free(bvhNodes);
     }
 
     __host__ BVH<T>* toGPU() const {
         BVHNode*  bvhNodesGPU       = (BVHNode*) allocGPU(2*nbPixels, sizeof(BVHNode));
-        Bbox<float>*     bboxMemoryGPU     = (Bbox<float>*)    allocGPU(2*nbPixels, sizeof(Bbox<float>));
         Point3<float>*   elementsMemoryGPU = (Point3<float>*)  allocGPU(2*nbPixels, sizeof(Point3<float>));
         
         checkError(cudaMemcpy(bvhNodesGPU,       bvhNodes,       2*nbPixels*sizeof(BVHNode), cudaMemcpyHostToDevice));
-        checkError(cudaMemcpy(bboxMemoryGPU,     bboxMemory,     2*nbPixels*sizeof(Bbox<float>),    cudaMemcpyHostToDevice));
         checkError(cudaMemcpy(elementsMemoryGPU, elementsMemory, 2*nbPixels*sizeof(Point3<float>),  cudaMemcpyHostToDevice));
 
         ArraySegment<float>* stackMemoryGPU = nullptr;
@@ -88,7 +84,6 @@ public:
         tmp.freeAfterBuild();
         tmp.freeAllMemory();
         tmp.bvhNodes       = bvhNodesGPU;
-        tmp.bboxMemory     = bboxMemoryGPU;
         tmp.elementsMemory = elementsMemoryGPU;
         tmp.stackMemory    = stackMemoryGPU;
         tmp.workingBuffer  = workingBufferGPU;
@@ -103,11 +98,9 @@ public:
         tmp.freeAllMemory();
         checkError(cudaMemcpy(&tmp, replica, sizeof(BVH<T>), cudaMemcpyDeviceToHost));
         checkError(cudaMemcpy(bvhNodes,       tmp.bvhNodes,       2*nbPixels*sizeof(BVHNode),       cudaMemcpyDeviceToHost));
-        checkError(cudaMemcpy(bboxMemory,     tmp.bboxMemory,     2*nbPixels*sizeof(Bbox<float>),          cudaMemcpyDeviceToHost));
         checkError(cudaMemcpy(elementsMemory, tmp.elementsMemory, 2*nbPixels*sizeof(Point3<float>), cudaMemcpyDeviceToHost));
         
         freeGPU(tmp.bvhNodes);
-        freeGPU(tmp.bboxMemory);
         freeGPU(tmp.elementsMemory);
 
         if(stackMemory != nullptr){
@@ -136,7 +129,7 @@ public:
             const BVHNode node = bvhNodes[buffer[--bufferSize]];
             const Point3<T> origin = ray.getOrigin();
             const Vec3<T> dir = ray.getDirection();
-            if(bboxMemory[node.bboxIndex].intersects(dir, origin)){
+            if(node.bbox.intersects(dir, origin)){
                 for(unsigned short i=0; i<node.nbElements; i++){
                     const Point3<T> point = elementsMemory[node.elementsIndex+i];
                     if(point != origin && intersectBox(point, dir, origin, TILE_SIZE/2)){
@@ -171,9 +164,7 @@ public:
             ArraySegment curSegment = stack.pop();
             const unsigned int curSize = curSegment.tail-curSegment.head;
 
-            curSegment.node->bboxIndex = nbNodes;
-            Bbox<T>* bbox = new (&bboxMemory[nbNodes]) Bbox<T>();
-            bbox->setEnglobing(curSegment.head, curSize, margin);
+            curSegment.node->bbox.setEnglobing(curSegment.head, curSize, margin);
             
             if(curSize < ELEMENTS_MAX_SIZE){
                 for(int i=0; i<curSize; i++){
@@ -184,7 +175,7 @@ public:
                 elementsCounter += curSize;
             }else{
 
-                const unsigned int splitIndex = BVH::split(curSegment.head, curSize, bbox);
+                const unsigned int splitIndex = split(curSegment.head, curSize,  curSegment.node->bbox);
                 Point3<T>** middle = &(curSegment.head[splitIndex]);
 
                 curSegment.node->leftIndex  = BVHNodeCounter;
@@ -206,7 +197,6 @@ private:
     unsigned int nbNodes = 0;
 
     BVHNode*      bvhNodes;
-    Bbox<float>*         bboxMemory;
     Point3<float>*       elementsMemory;
     ArraySegment<float>* stackMemory;
     Point3<float>**      workingBuffer;
@@ -269,11 +259,11 @@ private:
         return delta >= 0 && t > 0;
     }
 
-    __host__ __device__ int split(Point3<T>** points, unsigned int size, const Bbox<T>* bbox) const {
-        const T dx = bbox->getEdgeLength('X');
-        const T dy = bbox->getEdgeLength('Y');
+    __host__ __device__ int split(Point3<T>** points, unsigned int size, const Bbox<T>& bbox) const {
+        const T dx = bbox.getEdgeLength('X');
+        const T dy = bbox.getEdgeLength('Y');
         //const T dz = bbox->getEdgeLength('Z');
-        const Point3<T> center = bbox->getCenter();
+        const Point3<T> center = bbox.getCenter();
 
         int nbLeft  = 0;
         int nbRight = 0;
