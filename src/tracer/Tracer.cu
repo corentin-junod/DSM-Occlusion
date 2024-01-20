@@ -10,7 +10,8 @@ std::uniform_real_distribution<> uniform0_1 = std::uniform_real_distribution<>(0
 
 constexpr unsigned int NB_STRATIFIED_DIRS = 32;
 constexpr unsigned int SEED = 1423;
-constexpr dim3 threads(8,8);
+
+constexpr dim3 threads(8,16);
 
 
 __host__ __device__ 
@@ -36,16 +37,15 @@ void initRenderGPU(const Array2D<float>& data, Array2D<Point3<float>>& points, A
 
 __host__ 
 void render(Array2D<float>& data, const unsigned int index, const unsigned int raysPerPoint, Array2D<Point3<float>>& points, BVH<float>& bvh, int* traceBuffer, const unsigned int traceBufferSize){
-    Point3<float> origin  = points[index];
+    const Point3<float> origin  = points[index];
     Vec3<float> direction = Vec3<float>(0,0,0);
-    Ray<float> ray        = Ray<float>(origin, direction);
     float result = 0;
     for(unsigned int i=0; i<raysPerPoint; i++){
         const unsigned int segmentNumber = i%NB_STRATIFIED_DIRS;
         const float rnd1 = uniform0_1(genEngine);
         const float rnd2 = uniform0_1(genEngine);
-        const float cosThetaOverPdf = ray.getDirection().setRandomInHemisphereCosine( NB_STRATIFIED_DIRS, segmentNumber, rnd1, rnd2);
-        result += cosThetaOverPdf*bvh.getLighting(ray, &traceBuffer[index*traceBufferSize]);
+        const float cosThetaOverPdf = direction.setRandomInHemisphereCosineHost( NB_STRATIFIED_DIRS, segmentNumber, rnd1, rnd2);
+        result += cosThetaOverPdf*bvh.getLighting(origin, direction, &traceBuffer[index*traceBufferSize]);
     }
     data[index] = result/(PI*raysPerPoint); // Diffuse BSDF : f = 1/PI
 }
@@ -61,20 +61,20 @@ void renderGPU(Array2D<float>& data, Array2D<Point3<float>>& points, BVH<float>&
     curand_init(SEED, index, 0, &localRndState);
 
     extern __shared__ int traceBuffer[];
-    const unsigned int traceBufferOffset = bufferSize*(threadIdx.x+8*threadIdx.y);
+    const unsigned int traceBufferOffset = bufferSize*(threadIdx.x+blockDim.x*threadIdx.y);
+
     //__shared__ int newBuffer[21];
 
-    Point3<float> origin  = points[index];
+    const Point3<float> origin  = points[index];
     Vec3<float> direction = Vec3<float>(0,0,0);
-    Ray<float> ray        = Ray<float>(origin, direction);
 
     float result = 0;
     for(unsigned int i=0; i<raysPerPoint; i++){
         const float rnd1 = curand_uniform(&localRndState);
         const float rnd2 = curand_uniform(&localRndState);
         const unsigned int segmentNumber = i%NB_STRATIFIED_DIRS;
-        const float cosThetaOverPdf = ray.getDirection().setRandomInHemisphereCosine( NB_STRATIFIED_DIRS , segmentNumber, rnd1, rnd2);
-        result += cosThetaOverPdf*bvh.getLighting(ray, &traceBuffer[traceBufferOffset]);
+        const float cosThetaOverPdf = direction.setRandomInHemisphereCosineGPU( NB_STRATIFIED_DIRS , segmentNumber, rnd1, rnd2);
+        result += cosThetaOverPdf*bvh.getLighting(origin, direction, &traceBuffer[traceBufferOffset]);
     }
     data[index] = (result/raysPerPoint)*(1/PI); // Diffuse BSDF
 }

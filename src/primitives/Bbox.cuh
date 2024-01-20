@@ -113,6 +113,8 @@ public:
             min = tNearX;
             max = tFarX;
         }
+
+        if(max < 0) return false;
         
         const float yInverse = fdividef(1, rayDir.y);
         const float tNearY = (minY - rayOrigin.y) * yInverse;
@@ -126,7 +128,7 @@ public:
             max = fminf(tFarY, max);
         }
 
-        if(max < min) return false;
+        if(max < min || max < 0) return false;
 
         const float zInverse = fdividef(1, rayDir.z);
         const float tNearZ = (minZ - rayOrigin.z) * zInverse;

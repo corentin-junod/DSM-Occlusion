@@ -1,3 +1,4 @@
 #pragma once
 
 #define PI 3.14159265358979323846
+#define TWO_PI 6.283185307179586

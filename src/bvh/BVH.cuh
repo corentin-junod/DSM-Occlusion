@@ -120,12 +120,9 @@ public:
     __host__ __device__ int size() const {return nbNodes;}
 
 
-    __host__ __device__ float getLighting(const Ray<T>& ray, int* const buffer) const {
+    __host__ __device__ float getLighting(const Point3<T>& origin, const Vec3<T>& dir, int* const buffer) const {
         unsigned short bufferSize = 0;
         buffer[bufferSize++] = 0;
-
-        const Point3<T> origin = ray.getOrigin();
-        const Vec3<T> dir = ray.getDirection();
 
         while(bufferSize > 0){
             const BVHNode node = bvhNodes[buffer[--bufferSize]];
@@ -196,7 +193,7 @@ private:
     const unsigned int nbPixels;
     unsigned int nbNodes = 0;
 
-    BVHNode*      bvhNodes;
+    BVHNode*             bvhNodes;
     Point3<float>*       elementsMemory;
     ArraySegment<float>* stackMemory;
     Point3<float>**      workingBuffer;
