@@ -12,13 +12,14 @@
 
 constexpr unsigned int ELEMENTS_MAX_SIZE = 5; // Best is between 5 and 10
 
-struct BVHNode{
-    unsigned short int nbElements;
-    unsigned int elementsIndex;
-    Bbox<float> bbox;
-    int leftIndex;
-    int rightIndex;
-    __host__ __device__ BVHNode() : bbox(Bbox<float>()), leftIndex(-1), rightIndex(-1), elementsIndex(0), nbElements(0) {}
+struct __align__(16) BVHNode{
+    unsigned short int nbElements = 0;
+    unsigned int elementsIndex = 0;
+    int leftIndex = -1;
+    int rightIndex = -1;
+    //Bbox<float> bbox = Bbox<float>();
+    Bbox<float> bboxLeft = Bbox<float>();
+    Bbox<float> bboxRight = Bbox<float>();
 };
 
 template <typename T>
@@ -126,19 +127,22 @@ public:
 
         while(bufferSize > 0){
             const BVHNode node = bvhNodes[buffer[--bufferSize]];
-            if(node.bbox.intersects(dir, origin)){
-                for(unsigned short i=0; i<node.nbElements; i++){
-                    const Point3<T> point = elementsMemory[node.elementsIndex+i];
-                    if(point != origin && intersectBox(point, dir, origin, TILE_SIZE/2)){
-                        return 0;
-                    }
+            
+            for(unsigned short i=0; i<node.nbElements; i++){
+                const Point3<T> point = elementsMemory[node.elementsIndex+i];
+                if(point != origin && intersectBox(point, dir, origin, TILE_SIZE/2)){
+                    return 0;
                 }
+            }
 
-                if(node.leftIndex >= 0){
+            if(node.leftIndex >= 0){
+                if(node.bboxLeft.intersects(dir, origin)){
                     buffer[bufferSize++] = node.leftIndex;
                 }
+            }
 
-                if(node.rightIndex >= 0){
+            if(node.rightIndex >= 0){
+                if(node.bboxRight.intersects(dir, origin)){
                     buffer[bufferSize++] = node.rightIndex;
                 }
             }
@@ -160,8 +164,6 @@ public:
         while(stack.size > 0){
             ArraySegment curSegment = stack.pop();
             const unsigned int curSize = curSegment.tail-curSegment.head;
-
-            curSegment.node->bbox.setEnglobing(curSegment.head, curSize, margin);
             
             if(curSize < ELEMENTS_MAX_SIZE){
                 for(int i=0; i<curSize; i++){
@@ -172,15 +174,19 @@ public:
                 elementsCounter += curSize;
             }else{
 
-                const unsigned int splitIndex = split(curSegment.head, curSize,  curSegment.node->bbox);
+                Bbox<T> globalBbox = Bbox<T>();
+                globalBbox.setEnglobing(curSegment.head, curSize, margin);
+                const unsigned int splitIndex = split(curSegment.head, curSize,  globalBbox);
                 Point3<T>** middle = &(curSegment.head[splitIndex]);
 
                 curSegment.node->leftIndex  = BVHNodeCounter;
+                curSegment.node->bboxLeft.setEnglobing(curSegment.head, middle-curSegment.head, margin);
                 BVHNode* leftNode = new (&bvhNodes[BVHNodeCounter++]) BVHNode();
-                curSegment.node->rightIndex = BVHNodeCounter;
-                BVHNode* rightNode = new (&bvhNodes[BVHNodeCounter++]) BVHNode();
-                
                 stack.push(ArraySegment<T>{curSegment.head, middle, leftNode});
+
+                curSegment.node->rightIndex = BVHNodeCounter;
+                curSegment.node->bboxRight.setEnglobing(middle, curSegment.tail-middle, margin);
+                BVHNode* rightNode = new (&bvhNodes[BVHNodeCounter++]) BVHNode();
                 stack.push(ArraySegment<T>{middle, curSegment.tail, rightNode});
             }
 

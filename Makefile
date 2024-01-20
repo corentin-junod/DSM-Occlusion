@@ -27,8 +27,8 @@ $(BUILD_DIR)/%.cu.o: %.cu
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 
-release: CXXFLAGS += -O3 -Xcompiler -fopenmp -ftz=true -prec-div=false --use_fast_math
-release: CC       += -O3 -Xcompiler -fopenmp -ftz=true -prec-div=false --use_fast_math
+release: CXXFLAGS += -O3 -Xcompiler -fopenmp -ftz=true -prec-div=false --use_fast_math -lineinfo
+release: CC       += -O3 -Xcompiler -fopenmp -ftz=true -prec-div=false --use_fast_math -lineinfo
 release: build
 
 debug: CXXFLAGS += -g -G -Xcompiler -fopenmp

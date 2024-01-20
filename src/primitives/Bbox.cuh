@@ -9,12 +9,10 @@ template<typename T>
 class Bbox{
 public:
 
-    __host__ __device__ Bbox():minX(0), maxX(0), minY(0), maxY(0), minZ(0), maxZ(0), center(Point3<T>(0, 0, 0)){}
+    __host__ __device__ Bbox():minX(0), maxX(0), minY(0), maxY(0), minZ(0), maxZ(0){}
 
     __host__ __device__ Bbox(T minX, T maxX, T minY, T maxY, T minZ, T maxZ) :
-        minX(minX), maxX(maxX), minY(minY), maxY(maxY), minZ(minZ), maxZ(maxZ){
-            center = Point3<T>( (maxX+minX)/2, (maxY+minY)/2, (maxZ+minZ)/2 );
-        }
+        minX(minX), maxX(maxX), minY(minY), maxY(maxY), minZ(minZ), maxZ(maxZ){}
 
     template<typename U> __host__ friend std::ostream& operator<<(std::ostream& os, const Bbox<U>& bbox);
 
@@ -37,9 +35,6 @@ public:
         maxX += margin;
         maxY += margin;
         maxZ = maxZ;
-        center.x = (maxX+minX)/2;
-        center.y = (maxY+minY)/2;
-        center.z = (maxZ+minZ)/2;
     }
 
     __host__ __device__ T getEdgeLength(const char axis) const {
@@ -50,7 +45,7 @@ public:
         }
     }
 
-    __host__ __device__ const Point3<T>& getCenter() const {return center;}
+    __host__ __device__ const Point3<T> getCenter() const {return Point3<T>( (maxX+minX)/2, (maxY+minY)/2, (maxZ+minZ)/2 );}
 
     __host__ bool intersects(const Ray<T>& ray) const {
         float min, max;
@@ -152,7 +147,6 @@ private:
     T maxY;
     T minZ;
     T maxZ;
-    Point3<T> center;
 };
 
 
