@@ -149,7 +149,7 @@ public:
     }
 
     __host__ __device__ void build(Array2D<Point3<Float>*>& points) {
-        const Float margin = TILE_SIZE/TWO;
+        const Float margin = TILE_SIZE/(Float)2.1;
 
         unsigned int BVHNodeCounter  = 0;
         unsigned int elementsCounter = 0;
@@ -260,7 +260,7 @@ private:
         return delta >= ZERO && t > ZERO;
     }
 
-    __host__ int split(Point3<Float>** points, unsigned int size, const Bbox<Float>& bbox) const {
+    __host__ __device__ int split(Point3<Float>** points, unsigned int size, const Bbox<Float>& bbox) const {
         const Float dx = bbox.getEdgeLength('X');
         const Float dy = bbox.getEdgeLength('Y');
         //const Float dz = bbox->getEdgeLength('Z');
@@ -298,12 +298,11 @@ private:
         for(int i=0; i<size; i++){
             points[i] = workingBuffer[i];
         }
-        if(nbLeft == 0){
+        /*if(nbLeft == 0){
             std::cout<<"AAAA";
-            exit(2);
         }else{
             std::cout<<"OK\n";
-        }
+        }*/
         return nbLeft;
     }
 

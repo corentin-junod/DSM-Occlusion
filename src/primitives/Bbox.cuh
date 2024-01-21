@@ -16,7 +16,7 @@ public:
 
     template<typename U> __host__ friend std::ostream& operator<<(std::ostream& os, const Bbox<U>& bbox);
 
-    __host__ __device__ void setEnglobing(Point3<T>** points, int size, float margin){
+    __host__ __device__ void setEnglobing(Point3<T>** points, int size, T margin){
         minX = maxX = points[0]->x;
         minY = maxY = points[0]->y;
         minZ = maxZ = points[0]->z;
@@ -29,6 +29,7 @@ public:
             if(point->z < minZ) minZ = point->z;
             if(point->z > maxZ) maxZ = point->z;
         }
+
         minX -= margin;
         minY -= margin;
         minZ = 0;//-= margin*2;

@@ -2,7 +2,7 @@
 
 #include "cuda_fp16.h"
 
-#define Float half
+#define Float float
 
 #define ZERO (Float)0
 #define ONE (Float)1
