@@ -15,11 +15,11 @@ constexpr dim3 threads(8,16);
 
 
 __host__ __device__ 
-void initRender(const Array2D<float>& data, Array2D<Point3<float>>& points, Array2D<Point3<float>*>& pointsPointers, BVH<float>& bvh, const float pixelSize){
+void initRender(const Array2D<Float>& data, Array2D<Point3<Float>>& points, Array2D<Point3<Float>*>& pointsPointers, BVH& bvh, const Float pixelSize){
     for(unsigned int y=0; y<data.height(); y++){
         for(unsigned int x=0; x<data.width(); x++){
             const unsigned int index = y*data.width()+x;
-            points[index] = Point3<float>((float)x*pixelSize,(float)y*pixelSize, data[index]);
+            points[index] = Point3<Float>((Float)x*pixelSize,(Float)y*pixelSize, data[index]);
             pointsPointers[index] = &(points[index]);
         }
     }
@@ -27,7 +27,7 @@ void initRender(const Array2D<float>& data, Array2D<Point3<float>>& points, Arra
 }
 
 __global__
-void initRenderGPU(const Array2D<float>& data, Array2D<Point3<float>>& points, Array2D<Point3<float>*>& pointsPointers, BVH<float>& bvh, const float pixelSize) {
+void initRenderGPU(const Array2D<Float>& data, Array2D<Point3<Float>>& points, Array2D<Point3<Float>*>& pointsPointers, BVH& bvh, const Float pixelSize) {
     const unsigned int x = threadIdx.x + blockIdx.x * blockDim.x;
     const unsigned int y = threadIdx.y + blockIdx.y * blockDim.y;
     if(x>=data.width() || y>=data.height()) return;
@@ -36,22 +36,22 @@ void initRenderGPU(const Array2D<float>& data, Array2D<Point3<float>>& points, A
 
 
 __host__ 
-void render(Array2D<float>& data, const unsigned int index, const unsigned int raysPerPoint, Array2D<Point3<float>>& points, BVH<float>& bvh, int* traceBuffer, const unsigned int traceBufferSize){
-    const Point3<float> origin  = points[index];
-    Vec3<float> direction = Vec3<float>(0,0,0);
-    float result = 0;
-    for(unsigned int i=0; i<raysPerPoint; i++){
+void render(Array2D<Float>& data, const unsigned int index, const unsigned int raysPerPoint, Array2D<Point3<Float>>& points, BVH& bvh, int* traceBuffer, const unsigned int traceBufferSize){
+    const Point3<Float> origin  = points[index];
+    Vec3<Float> direction = Vec3<Float>(0,0,0);
+    Float result = 0;
+    /*for(unsigned int i=0; i<raysPerPoint; i++){
         const unsigned int segmentNumber = i%NB_STRATIFIED_DIRS;
-        const float rnd1 = uniform0_1(genEngine);
-        const float rnd2 = uniform0_1(genEngine);
-        const float cosThetaOverPdf = direction.setRandomInHemisphereCosineHost( NB_STRATIFIED_DIRS, segmentNumber, rnd1, rnd2);
+        const Float rnd1 = uniform0_1(genEngine);
+        const Float rnd2 = uniform0_1(genEngine);
+        const Float cosThetaOverPdf = direction.setRandomInHemisphereCosineHost( NB_STRATIFIED_DIRS, segmentNumber, rnd1, rnd2);
         result += cosThetaOverPdf*bvh.getLighting(origin, direction, &traceBuffer[index*traceBufferSize]);
-    }
-    data[index] = result/(PI*raysPerPoint); // Diffuse BSDF : f = 1/PI
+    }*/
+    data[index] = result/(PI*(Float)raysPerPoint); // Diffuse BSDF : f = 1/PI
 }
 
 __global__
-void renderGPU(Array2D<float>& data, Array2D<Point3<float>>& points, BVH<float>& bvh, const unsigned int raysPerPoint, curandState* const rndState, unsigned int bufferSize){
+void renderGPU(Array2D<Float>& data, Array2D<Point3<Float>>& points, BVH& bvh, const unsigned int raysPerPoint, curandState* const rndState, unsigned int bufferSize){    
     const int x = threadIdx.x + blockIdx.x * blockDim.x;
     const int y = threadIdx.y + blockIdx.y * blockDim.y;
     if(x>=data.width() || y>=data.height()) return;
@@ -63,27 +63,28 @@ void renderGPU(Array2D<float>& data, Array2D<Point3<float>>& points, BVH<float>&
     extern __shared__ int traceBuffer[];
     const unsigned int traceBufferOffset = bufferSize*(threadIdx.x+blockDim.x*threadIdx.y);
 
-    //__shared__ int newBuffer[21];
+    const Point3<Float> origin(points[index].x, points[index].y, points[index].z);
+    Vec3<Float> direction = Vec3<Float>(0,0,0);
 
-    const Point3<float> origin  = points[index];
-    Vec3<float> direction = Vec3<float>(0,0,0);
+    half truc = 3.14159265358979323846;
+    truc = truc + (half)1;
 
-    float result = 0;
+    Float result = 0;
     for(unsigned int i=0; i<raysPerPoint; i++){
-        const float rnd1 = curand_uniform(&localRndState);
-        const float rnd2 = curand_uniform(&localRndState);
+        const Float rnd1 = curand_uniform(&localRndState);
+        const Float rnd2 = curand_uniform(&localRndState);
         const unsigned int segmentNumber = i%NB_STRATIFIED_DIRS;
-        const float cosThetaOverPdf = direction.setRandomInHemisphereCosineGPU( NB_STRATIFIED_DIRS , segmentNumber, rnd1, rnd2);
+        const Float cosThetaOverPdf = direction.setRandomInHemisphereCosineGPU( NB_STRATIFIED_DIRS , segmentNumber, rnd1, rnd2);
         result += cosThetaOverPdf*bvh.getLighting(origin, direction, &traceBuffer[traceBufferOffset]);
     }
-    data[index] = (result/raysPerPoint)*(1/PI); // Diffuse BSDF
+    data[index] = (result/(Float)raysPerPoint)*(ONE/(Float)PI); // Diffuse BSDF
 }
 
 
-Tracer::Tracer(Array2D<float>& data, const float pixelSize): 
+Tracer::Tracer(Array2D<Float>& data, const Float pixelSize): 
     data(data), width(data.width()), height(data.height()), pixelSize(pixelSize), 
-    points(Array2D<Point3<float>>(width, height)),
-    bvh(new BVH<float>(width*height)){}
+    points(Array2D<Point3<Float>>(width, height)),
+    bvh(new BVH(width*height)){}
 
 Tracer::~Tracer(){
     cudaFree(randomState);
@@ -94,13 +95,13 @@ Tracer::~Tracer(){
 void Tracer::init(const bool useGPU, const bool prinInfos){
     useGPUInit = useGPU;
     randomState = (curandState*) allocGPU(width*height, sizeof(curandState)); // TODO this should also be initialized when on CPU
-    Array2D<Point3<float>*> pointsPointers(data.width(), data.height());
+    Array2D<Point3<Float>*> pointsPointers(data.width(), data.height());
 
     if(useGPU){
-        BVH<float>* bvhGPU = bvh->toGPU();
-        Array2D<Point3<float>*>* pointsPointersGPU = pointsPointers.toGPU();
-        Array2D<float>* dataGPU = data.toGPU();
-        Array2D<Point3<float>>* pointsGPU = points.toGPU();
+        BVH* bvhGPU = bvh->toGPU();
+        Array2D<Point3<Float>*>* pointsPointersGPU = pointsPointers.toGPU();
+        Array2D<Float>* dataGPU = data.toGPU();
+        Array2D<Point3<Float>>* pointsGPU = points.toGPU();
         initRenderGPU<<<1,1>>>(*dataGPU, *pointsGPU, *pointsPointersGPU, *bvhGPU, pixelSize);
         syncGPU();
         points.fromGPU(pointsGPU);
@@ -117,14 +118,14 @@ void Tracer::init(const bool useGPU, const bool prinInfos){
 
 void Tracer::trace(const bool useGPU, const unsigned int raysPerPoint){
     useGPURender = useGPU;
-    const unsigned int traceBufferSizePerThread = std::log2(bvh->size())+1;
+    const unsigned int traceBufferSizePerThread = std::log2(bvh->size());
 
     if(useGPU){
         const dim3 blocks(width/threads.x+1, height/threads.y+1);
 
-        Array2D<Point3<float>>* pointsGPU = points.toGPU();
-        BVH<float>* bvhGPU = bvh->toGPU();
-        Array2D<float>* dataGPU = data.toGPU();
+        Array2D<Point3<Float>>* pointsGPU = points.toGPU();
+        BVH* bvhGPU = bvh->toGPU();
+        Array2D<Float>* dataGPU = data.toGPU();
         const unsigned int sharedMem = threads.x*threads.y*traceBufferSizePerThread*sizeof(int);
         renderGPU<<<blocks, threads, sharedMem>>>(*dataGPU, *pointsGPU, *bvhGPU, raysPerPoint, randomState, traceBufferSizePerThread);
         syncGPU();

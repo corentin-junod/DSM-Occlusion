@@ -4,7 +4,7 @@
 
 class Tracer{
 public:
-    Tracer(Array2D<float>& data, const float pixelSize);
+    Tracer(Array2D<Float>& data, const Float pixelSize);
     ~Tracer();
 
     void init(const bool useGPU, const bool prinInfos);
@@ -13,12 +13,12 @@ public:
 private:
     const unsigned int width;
     const unsigned int height;
-    const float pixelSize;
+    const Float pixelSize;
     bool useGPUInit   = false;
     bool useGPURender = false;
     
-    BVH<float>*     bvh; 
-    Array2D<float>& data;
-    Array2D<Point3<float>>  points;
+    BVH*     bvh; 
+    Array2D<Float>& data;
+    Array2D<Point3<Float>>  points;
     curandState*    randomState = nullptr;
 };

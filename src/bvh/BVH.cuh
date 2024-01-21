@@ -6,47 +6,46 @@
 #include "../array/Array.cuh"
 
 #include <cstdio>
+#include <iostream>
 #include <ostream>
 
-#define TILE_SIZE 0.5 
+#define TILE_SIZE (Float)0.5 
 
-constexpr unsigned int ELEMENTS_MAX_SIZE = 5; // Best is between 5 and 10
+constexpr unsigned int ELEMENTS_MAX_SIZE = 6; // Best is between 5 and 10
 
 struct __align__(16) BVHNode{
-    unsigned short int nbElements = 0;
+    unsigned char nbElements = 0;
     unsigned int elementsIndex = 0;
-    int leftIndex = -1;
-    int rightIndex = -1;
-    //Bbox<float> bbox = Bbox<float>();
-    Bbox<float> bboxLeft = Bbox<float>();
-    Bbox<float> bboxRight = Bbox<float>();
+    unsigned int leftIndex = 0;
+    unsigned int rightIndex = 0;
+    Bbox<Float> bboxLeft = Bbox<Float>();
+    Bbox<Float> bboxRight = Bbox<Float>();
 };
 
 template <typename T>
 struct ArraySegment{
-    Point3<T>** head;
-    Point3<T>** tail;
+    Point3<Float>** head;
+    Point3<Float>** tail;
     BVHNode* node;
 };
 
 template <typename T>
 struct Stack {
-    ArraySegment<T>* data;
+    ArraySegment<Float>* data;
     unsigned int size;
     __host__ __device__ void push(ArraySegment<T> value) {data[size++] = value;}
-    __host__ __device__ ArraySegment<T> pop() {return data[--size];}
+    __host__ __device__ ArraySegment<Float> pop() {return data[--size];}
 };
 
 
-template<typename T>
 class BVH{
 
 public:
     __host__ BVH(const unsigned int nbPixels): nbPixels(nbPixels) {
         bvhNodes       = (BVHNode*)       calloc(2*nbPixels, sizeof(BVHNode));
-        elementsMemory = (Point3<float>*)        calloc(2*nbPixels, sizeof(Point3<float>)); // could be 1"nbPixels
-        stackMemory    = (ArraySegment<float>*)  calloc(nbPixels,   sizeof(ArraySegment<float>));
-        workingBuffer  = (Point3<float>**)       calloc(nbPixels,   sizeof(Point3<float>*));
+        elementsMemory = (Point3<Float>*)        calloc(2*nbPixels, sizeof(Point3<Float>)); // could be 1"nbPixels
+        stackMemory    = (ArraySegment<Float>*)  calloc(nbPixels,   sizeof(ArraySegment<Float>));
+        workingBuffer  = (Point3<Float>**)       calloc(nbPixels,   sizeof(Point3<Float>*));
     }
 
     __host__ void freeAfterBuild(){
@@ -61,54 +60,54 @@ public:
         free(bvhNodes);
     }
 
-    __host__ BVH<T>* toGPU() const {
+    __host__ BVH* toGPU() const {
         BVHNode*  bvhNodesGPU       = (BVHNode*) allocGPU(2*nbPixels, sizeof(BVHNode));
-        Point3<float>*   elementsMemoryGPU = (Point3<float>*)  allocGPU(2*nbPixels, sizeof(Point3<float>));
+        Point3<Float>*   elementsMemoryGPU = (Point3<Float>*)  allocGPU(2*nbPixels, sizeof(Point3<Float>));
         
         checkError(cudaMemcpy(bvhNodesGPU,       bvhNodes,       2*nbPixels*sizeof(BVHNode), cudaMemcpyHostToDevice));
-        checkError(cudaMemcpy(elementsMemoryGPU, elementsMemory, 2*nbPixels*sizeof(Point3<float>),  cudaMemcpyHostToDevice));
+        checkError(cudaMemcpy(elementsMemoryGPU, elementsMemory, 2*nbPixels*sizeof(Point3<Float>),  cudaMemcpyHostToDevice));
 
-        ArraySegment<float>* stackMemoryGPU = nullptr;
+        ArraySegment<Float>* stackMemoryGPU = nullptr;
         if(stackMemory != nullptr){
-            stackMemoryGPU    = (ArraySegment<float>*)  allocGPU(nbPixels,   sizeof(ArraySegment<float>));
-            checkError(cudaMemcpy(stackMemoryGPU, stackMemory, nbPixels*sizeof(ArraySegment<float>), cudaMemcpyHostToDevice));
+            stackMemoryGPU    = (ArraySegment<Float>*)  allocGPU(nbPixels,   sizeof(ArraySegment<Float>));
+            checkError(cudaMemcpy(stackMemoryGPU, stackMemory, nbPixels*sizeof(ArraySegment<Float>), cudaMemcpyHostToDevice));
         }
 
-        Point3<float>** workingBufferGPU = nullptr;
+        Point3<Float>** workingBufferGPU = nullptr;
         if(workingBuffer != nullptr){
-            workingBufferGPU = (Point3<float>**) allocGPU(nbPixels, sizeof(Point3<float>*));
-            checkError(cudaMemcpy(workingBufferGPU, workingBuffer, nbPixels*sizeof(Point3<float>*), cudaMemcpyHostToDevice));
+            workingBufferGPU = (Point3<Float>**) allocGPU(nbPixels, sizeof(Point3<Float>*));
+            checkError(cudaMemcpy(workingBufferGPU, workingBuffer, nbPixels*sizeof(Point3<Float>*), cudaMemcpyHostToDevice));
         }
 
-        BVH<T> tmp = BVH<T>(nbPixels);
+        BVH tmp = BVH(nbPixels);
         tmp.freeAfterBuild();
         tmp.freeAllMemory();
         tmp.bvhNodes       = bvhNodesGPU;
         tmp.elementsMemory = elementsMemoryGPU;
         tmp.stackMemory    = stackMemoryGPU;
         tmp.workingBuffer  = workingBufferGPU;
-        BVH<T>* replica = (BVH<T>*) allocGPU(sizeof(BVH<T>));
-        checkError(cudaMemcpy(replica, &tmp, sizeof(BVH<T>), cudaMemcpyHostToDevice));
+        BVH* replica = (BVH*) allocGPU(sizeof(BVH));
+        checkError(cudaMemcpy(replica, &tmp, sizeof(BVH), cudaMemcpyHostToDevice));
         return replica;
     }
 
-    __host__ void fromGPU(BVH<T>* replica){
-        BVH<T> tmp = BVH<T>(nbPixels);
+    __host__ void fromGPU(BVH* replica){
+        BVH tmp = BVH(nbPixels);
         tmp.freeAfterBuild();
         tmp.freeAllMemory();
-        checkError(cudaMemcpy(&tmp, replica, sizeof(BVH<T>), cudaMemcpyDeviceToHost));
+        checkError(cudaMemcpy(&tmp, replica, sizeof(BVH), cudaMemcpyDeviceToHost));
         checkError(cudaMemcpy(bvhNodes,       tmp.bvhNodes,       2*nbPixels*sizeof(BVHNode),       cudaMemcpyDeviceToHost));
-        checkError(cudaMemcpy(elementsMemory, tmp.elementsMemory, 2*nbPixels*sizeof(Point3<float>), cudaMemcpyDeviceToHost));
+        checkError(cudaMemcpy(elementsMemory, tmp.elementsMemory, 2*nbPixels*sizeof(Point3<Float>), cudaMemcpyDeviceToHost));
         
         freeGPU(tmp.bvhNodes);
         freeGPU(tmp.elementsMemory);
 
         if(stackMemory != nullptr){
-            checkError(cudaMemcpy(stackMemory, tmp.stackMemory, nbPixels*sizeof(ArraySegment<float>), cudaMemcpyDeviceToHost));
+            checkError(cudaMemcpy(stackMemory, tmp.stackMemory, nbPixels*sizeof(ArraySegment<Float>), cudaMemcpyDeviceToHost));
             freeGPU(tmp.stackMemory);
         }
         if(workingBuffer != nullptr){
-            checkError(cudaMemcpy(workingBuffer, tmp.workingBuffer, nbPixels*sizeof(Point3<float>*), cudaMemcpyDeviceToHost));
+            checkError(cudaMemcpy(workingBuffer, tmp.workingBuffer, nbPixels*sizeof(Point3<Float>*), cudaMemcpyDeviceToHost));
             freeGPU(tmp.workingBuffer);
         }
 
@@ -120,46 +119,45 @@ public:
     __host__ void printInfos(){std::cout<<"BVH : \n   Nodes : "<<nbNodes<<"\n";}
     __host__ __device__ int size() const {return nbNodes;}
 
-
-    __host__ __device__ float getLighting(const Point3<T>& origin, const Vec3<T>& dir, int* const buffer) const {
-        unsigned short bufferSize = 0;
+    __device__ Float getLighting(const Point3<Float>& origin, const Vec3<Float>& dir, int* const buffer) const {
+        unsigned char bufferSize = 0;
         buffer[bufferSize++] = 0;
 
         while(bufferSize > 0){
             const BVHNode node = bvhNodes[buffer[--bufferSize]];
-            
-            for(unsigned short i=0; i<node.nbElements; i++){
-                const Point3<T> point = elementsMemory[node.elementsIndex+i];
-                if(point != origin && intersectBox(point, dir, origin, TILE_SIZE/2)){
-                    return 0;
-                }
-            }
 
-            if(node.leftIndex >= 0){
-                if(node.bboxLeft.intersects(dir, origin)){
+            if(node.nbElements == 0){
+                const bool intersectLeft = node.bboxLeft.intersects(dir, origin);
+                const bool intersectRight = node.bboxRight.intersects(dir, origin);
+
+                if(intersectLeft){
                     buffer[bufferSize++] = node.leftIndex;
                 }
-            }
-
-            if(node.rightIndex >= 0){
-                if(node.bboxRight.intersects(dir, origin)){
+                if(intersectRight){
                     buffer[bufferSize++] = node.rightIndex;
+                }
+            }else{
+                for(unsigned char i=0; i<node.nbElements; i++){
+                    const Point3<Float> point = elementsMemory[node.elementsIndex+i];
+                    if(point != origin && intersectBox(point, dir, origin, TILE_SIZE/TWO)){
+                        return 0;
+                    }
                 }
             }
         }
         return 1;
     }
 
-    __host__ __device__ void build(Array2D<Point3<T>*>& points) {
-        const float margin = TILE_SIZE/2;
+    __host__ __device__ void build(Array2D<Point3<Float>*>& points) {
+        const Float margin = TILE_SIZE/TWO;
 
         unsigned int BVHNodeCounter  = 0;
         unsigned int elementsCounter = 0;
 
-        Stack<T> stack = Stack<T>{stackMemory, 0};
+        Stack<Float> stack = Stack<Float>{stackMemory, 0};
 
         BVHNode* root = new (&bvhNodes[BVHNodeCounter++]) BVHNode();
-        stack.push(ArraySegment<T>{points.begin(), points.end(), root});
+        stack.push(ArraySegment<Float>{points.begin(), points.end(), root});
         
         while(stack.size > 0){
             ArraySegment curSegment = stack.pop();
@@ -174,20 +172,20 @@ public:
                 elementsCounter += curSize;
             }else{
 
-                Bbox<T> globalBbox = Bbox<T>();
+                Bbox<Float> globalBbox = Bbox<Float>();
                 globalBbox.setEnglobing(curSegment.head, curSize, margin);
                 const unsigned int splitIndex = split(curSegment.head, curSize,  globalBbox);
-                Point3<T>** middle = &(curSegment.head[splitIndex]);
+                Point3<Float>** middle = &(curSegment.head[splitIndex]);
 
                 curSegment.node->leftIndex  = BVHNodeCounter;
                 curSegment.node->bboxLeft.setEnglobing(curSegment.head, middle-curSegment.head, margin);
                 BVHNode* leftNode = new (&bvhNodes[BVHNodeCounter++]) BVHNode();
-                stack.push(ArraySegment<T>{curSegment.head, middle, leftNode});
+                stack.push(ArraySegment<Float>{curSegment.head, middle, leftNode});
 
                 curSegment.node->rightIndex = BVHNodeCounter;
                 curSegment.node->bboxRight.setEnglobing(middle, curSegment.tail-middle, margin);
                 BVHNode* rightNode = new (&bvhNodes[BVHNodeCounter++]) BVHNode();
-                stack.push(ArraySegment<T>{middle, curSegment.tail, rightNode});
+                stack.push(ArraySegment<Float>{middle, curSegment.tail, rightNode});
             }
 
             nbNodes++;
@@ -200,17 +198,17 @@ private:
     unsigned int nbNodes = 0;
 
     BVHNode*             bvhNodes;
-    Point3<float>*       elementsMemory;
-    ArraySegment<float>* stackMemory;
-    Point3<float>**      workingBuffer;
+    Point3<Float>*       elementsMemory;
+    ArraySegment<Float>* stackMemory;
+    Point3<Float>**      workingBuffer;
 
 
-    __host__ __device__ bool intersectBox(const Point3<T>& top, const Vec3<T>& rayDir, const Point3<T>& rayOrigin, const float margin) const {
-        float min, max;
+    __host__ __device__ bool intersectBox(const Point3<Float>& top, const Vec3<Float>& rayDir, const Point3<Float>& rayOrigin, const Float margin) const {
+        Float min, max;
 
-        const float xInverse = 1 / rayDir.x;
-        const float tNearX = (top.x - margin - rayOrigin.x) * xInverse;
-        const float tFarX  = (top.x + margin - rayOrigin.x) * xInverse;
+        const Float xInverse = ONE / rayDir.x;
+        const Float tNearX = (top.x - margin - rayOrigin.x) * xInverse;
+        const Float tFarX  = (top.x + margin - rayOrigin.x) * xInverse;
 
         if(tNearX > tFarX){
             min = tFarX;
@@ -220,9 +218,9 @@ private:
             max = tFarX;
         }
         
-        const float yInverse = 1 / rayDir.y;
-        const float tNearY = (top.y - margin - rayOrigin.y) * yInverse;
-        const float tFarY  = (top.y + margin - rayOrigin.y) * yInverse;
+        const Float yInverse = ONE / rayDir.y;
+        const Float tNearY = (top.y - margin - rayOrigin.y) * yInverse;
+        const Float tFarY  = (top.y + margin - rayOrigin.y) * yInverse;
 
         if(tNearY > tFarY){
             min = min < tFarY  ? tFarY  : min;
@@ -232,11 +230,11 @@ private:
             max = max > tFarY  ? tFarY  : max;
         }
 
-        if(max < min && min > 0) return false;
+        if(max < min && min > ZERO) return false;
 
-        const float zInverse = 1 / rayDir.z;
-        const float tNearZ = (-rayOrigin.z) * zInverse;
-        const float tFarZ  = (top.z - rayOrigin.z) * zInverse;
+        const Float zInverse = ONE / rayDir.z;
+        const Float tNearZ = (-rayOrigin.z) * zInverse;
+        const Float tFarZ  = (top.z - rayOrigin.z) * zInverse;
 
        if(tNearZ > tFarZ){
             min = min < tFarZ  ? tFarZ  : min;
@@ -246,34 +244,34 @@ private:
             max = max > tFarZ  ? tFarZ  : max;
         }
 
-        return min < max && min > 0;
+        return min < max && min > ZERO;
     }
 
-    __host__ __device__ bool intersectSphere(const Point3<T>& top, const Ray<T>& ray, const float radius) const {
+    __host__ __device__ bool intersectSphere(const Point3<Float>& top, const Ray<Float>& ray, const Float radius) const {
         ray.getDirection().normalize();
-        const Point3<T> center = Point3<T>(top.x, top.y, top.z-TILE_SIZE/2);
-        const T radius_squared = radius*radius;
-        const Vec3<T> d_co = ray.getOrigin() - center;
-        const T d_co_norm_sqr = d_co.getNormSquared();
+        const Point3<Float> center = Point3<Float>(top.x, top.y, top.z-TILE_SIZE/TWO);
+        const Float radius_squared = radius*radius;
+        const Vec3<Float> d_co = ray.getOrigin() - center;
+        const Float d_co_norm_sqr = d_co.getNormSquared();
         if(d_co_norm_sqr <= radius_squared) return false;
-        const T tmp = ray.getDirection().dot(d_co);
-        const T delta = tmp*tmp - (d_co_norm_sqr - radius_squared);
-        const T t = -tmp-sqrt(delta);
-        return delta >= 0 && t > 0;
+        const Float tmp = ray.getDirection().dot(d_co);
+        const Float delta = tmp*tmp - (d_co_norm_sqr - radius_squared);
+        const Float t = -ONE*(tmp+(Float)sqrt((float)delta));
+        return delta >= ZERO && t > ZERO;
     }
 
-    __host__ __device__ int split(Point3<T>** points, unsigned int size, const Bbox<T>& bbox) const {
-        const T dx = bbox.getEdgeLength('X');
-        const T dy = bbox.getEdgeLength('Y');
-        //const T dz = bbox->getEdgeLength('Z');
-        const Point3<T> center = bbox.getCenter();
+    __host__ int split(Point3<Float>** points, unsigned int size, const Bbox<Float>& bbox) const {
+        const Float dx = bbox.getEdgeLength('X');
+        const Float dy = bbox.getEdgeLength('Y');
+        //const Float dz = bbox->getEdgeLength('Z');
+        const Point3<Float> center = bbox.getCenter();
 
         int nbLeft  = 0;
         int nbRight = 0;
 
 
         for(int i=0; i<size; i++){
-            Point3<T>* const point = points[i];
+            Point3<Float>* const point = points[i];
             if(dx>=dy /*&& dx>=dz*/){
                 if(point->x < center.x){
                     workingBuffer[nbLeft++] = point;
@@ -299,6 +297,12 @@ private:
         }
         for(int i=0; i<size; i++){
             points[i] = workingBuffer[i];
+        }
+        if(nbLeft == 0){
+            std::cout<<"AAAA";
+            exit(2);
+        }else{
+            std::cout<<"OK\n";
         }
         return nbLeft;
     }

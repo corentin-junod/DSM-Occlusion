@@ -45,17 +45,17 @@ public:
         }
     }
 
-    __host__ __device__ const Point3<T> getCenter() const {return Point3<T>( (maxX+minX)/2, (maxY+minY)/2, (maxZ+minZ)/2 );}
+    __host__ __device__ const Point3<T> getCenter() const {return Point3<T>( (maxX+minX)/TWO, (maxY+minY)/TWO, (maxZ+minZ)/TWO );}
 
-    __host__ bool intersects(const Ray<T>& ray) const {
-        float min, max;
+    __host__ bool intersects(const Ray<Float>& ray) const {
+        Float min, max;
 
         const Vec3<T>& rayDir = ray.getDirection();
         const Point3<T>& rayOrigin = ray.getOrigin();
 
-        const float xInverse = 1 / rayDir.x;
-        const float tNearX = (minX - rayOrigin.x) * xInverse;
-        const float tFarX  = (maxX - rayOrigin.x) * xInverse;
+        const Float xInverse = 1 / rayDir.x;
+        const Float tNearX = (minX - rayOrigin.x) * xInverse;
+        const Float tFarX  = (maxX - rayOrigin.x) * xInverse;
 
         if(tNearX > tFarX){
             min = tFarX;
@@ -65,9 +65,9 @@ public:
             max = tFarX;
         }
         
-        const float yInverse = 1 / rayDir.y;
-        const float tNearY = (minY - rayOrigin.y) * yInverse;
-        const float tFarY  = (maxY - rayOrigin.y) * yInverse;
+        const Float yInverse = 1 / rayDir.y;
+        const Float tNearY = (minY - rayOrigin.y) * yInverse;
+        const Float tFarY  = (maxY - rayOrigin.y) * yInverse;
 
         if(tNearY > tFarY){
             min = min < tFarY  ? tFarY  : min;
@@ -79,9 +79,9 @@ public:
 
         if(max < min) return false;
 
-        const float zInverse = 1 / rayDir.z;
-        const float tNearZ = (minZ - rayOrigin.z) * zInverse;
-        const float tFarZ  = (maxZ - rayOrigin.z) * zInverse;
+        const Float zInverse = 1 / rayDir.z;
+        const Float tNearZ = (minZ - rayOrigin.z) * zInverse;
+        const Float tFarZ  = (maxZ - rayOrigin.z) * zInverse;
 
        if(tNearZ > tFarZ){
             min = min < tFarZ  ? tFarZ  : min;
@@ -91,15 +91,15 @@ public:
             max = max > tFarZ  ? tFarZ  : max;
         }
 
-        return min < max && max > 0;
+        return min < max && max > ZERO;
     }
 
-    __device__ __forceinline__ bool intersects(const Vec3<T>& rayDir, const Point3<T>& rayOrigin) const {
-        float min, max;
+    __device__ bool intersects(const Vec3<Float>& rayDir, const Point3<Float>& rayOrigin) const {
+        Float min, max;
 
-        const float xInverse = fdividef(1, rayDir.x);
-        const float tNearX = (minX - rayOrigin.x) * xInverse;
-        const float tFarX  = (maxX - rayOrigin.x) * xInverse;
+        const Float xInverse = fdividef(1, rayDir.x);
+        const Float tNearX = (minX - rayOrigin.x) * xInverse;
+        const Float tFarX  = (maxX - rayOrigin.x) * xInverse;
 
         if(tNearX > tFarX){
             min = tFarX;
@@ -109,11 +109,11 @@ public:
             max = tFarX;
         }
 
-        if(max < 0) return false;
+        if(max < ZERO) return false;
         
-        const float yInverse = fdividef(1, rayDir.y);
-        const float tNearY = (minY - rayOrigin.y) * yInverse;
-        const float tFarY  = (maxY - rayOrigin.y) * yInverse;
+        const Float yInverse = fdividef(1, rayDir.y);
+        const Float tNearY = (minY - rayOrigin.y) * yInverse;
+        const Float tFarY  = (maxY - rayOrigin.y) * yInverse;
 
         if(tNearY > tFarY){
             min = fmaxf(tFarY, min);
@@ -123,11 +123,11 @@ public:
             max = fminf(tFarY, max);
         }
 
-        if(max < min || max < 0) return false;
+        if(max < min || max < ZERO) return false;
 
-        const float zInverse = fdividef(1, rayDir.z);
-        const float tNearZ = (minZ - rayOrigin.z) * zInverse;
-        const float tFarZ  = (maxZ - rayOrigin.z) * zInverse;
+        const Float zInverse = fdividef(1, rayDir.z);
+        const Float tNearZ = (minZ - rayOrigin.z) * zInverse;
+        const Float tFarZ  = (maxZ - rayOrigin.z) * zInverse;
 
        if(tNearZ > tFarZ){
             min = fmaxf(tFarZ, min);
@@ -137,7 +137,7 @@ public:
             max = fminf(tFarZ, max);
         }
 
-        return min < max && max > 0;
+        return min < max && max > ZERO;
     }
 
 private:

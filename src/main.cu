@@ -10,7 +10,7 @@ int main(){
     const char* outputFilename = "data/output.tif";
 
     const unsigned int RAYS_PER_POINT = 128;
-    const float pixelSize = 0.5;
+    const Float pixelSize = 0.5;
 
     Raster raster = Raster(filename, outputFilename);
 
@@ -23,7 +23,12 @@ int main(){
     Array2D<float> data(raster.getWidth(), raster.getHeight());
     raster.readData(data.begin());
 
-    Tracer tracer = Tracer(data, pixelSize);
+    Array2D<Float> dataFloat(raster.getWidth(), raster.getHeight());
+    for(unsigned int i=0; i<data.size(); i++){
+        dataFloat[i] = (Float)data[i];
+    }
+
+    Tracer tracer = Tracer(dataFloat, pixelSize);
 
     std::cout << "Building BVH...\n";
     tracer.init(false, true);
@@ -32,6 +37,10 @@ int main(){
     std::cout << "Start tracing...\n";
     tracer.trace(true, RAYS_PER_POINT);
     std::cout << "Tracing finished...\n";
+
+    for(unsigned int i=0; i<data.size(); i++){
+        data[i] = (float)dataFloat[i];
+    }
 
     raster.writeData(data.begin());
 
