@@ -11,7 +11,7 @@
 
 #define TILE_SIZE (Float)0.5 
 
-constexpr unsigned int ELEMENTS_MAX_SIZE = 6; // Best is between 5 and 10
+constexpr unsigned char ELEMENTS_MAX_SIZE = 6; // Best is between 5 and 10
 
 struct __align__(16) BVHNode{
     unsigned char nbElements = 0;
@@ -42,8 +42,8 @@ class BVH{
 
 public:
     __host__ BVH(const unsigned int nbPixels): nbPixels(nbPixels) {
-        bvhNodes       = (BVHNode*)       calloc(2*nbPixels, sizeof(BVHNode));
-        elementsMemory = (Point3<Float>*)        calloc(2*nbPixels, sizeof(Point3<Float>)); // could be 1"nbPixels
+        bvhNodes       = (BVHNode*)              calloc(2*nbPixels, sizeof(BVHNode));
+        elementsMemory = (Point3<Float>*)        calloc(nbPixels, sizeof(Point3<Float>));
         stackMemory    = (ArraySegment<Float>*)  calloc(nbPixels,   sizeof(ArraySegment<Float>));
         workingBuffer  = (Point3<Float>**)       calloc(nbPixels,   sizeof(Point3<Float>*));
     }
@@ -65,7 +65,7 @@ public:
         Point3<Float>*   elementsMemoryGPU = (Point3<Float>*)  allocGPU(2*nbPixels, sizeof(Point3<Float>));
         
         checkError(cudaMemcpy(bvhNodesGPU,       bvhNodes,       2*nbPixels*sizeof(BVHNode), cudaMemcpyHostToDevice));
-        checkError(cudaMemcpy(elementsMemoryGPU, elementsMemory, 2*nbPixels*sizeof(Point3<Float>),  cudaMemcpyHostToDevice));
+        checkError(cudaMemcpy(elementsMemoryGPU, elementsMemory, nbPixels*sizeof(Point3<Float>),  cudaMemcpyHostToDevice));
 
         ArraySegment<Float>* stackMemoryGPU = nullptr;
         if(stackMemory != nullptr){
@@ -97,7 +97,7 @@ public:
         tmp.freeAllMemory();
         checkError(cudaMemcpy(&tmp, replica, sizeof(BVH), cudaMemcpyDeviceToHost));
         checkError(cudaMemcpy(bvhNodes,       tmp.bvhNodes,       2*nbPixels*sizeof(BVHNode),       cudaMemcpyDeviceToHost));
-        checkError(cudaMemcpy(elementsMemory, tmp.elementsMemory, 2*nbPixels*sizeof(Point3<Float>), cudaMemcpyDeviceToHost));
+        checkError(cudaMemcpy(elementsMemory, tmp.elementsMemory, nbPixels*sizeof(Point3<Float>), cudaMemcpyDeviceToHost));
         
         freeGPU(tmp.bvhNodes);
         freeGPU(tmp.elementsMemory);
@@ -122,20 +122,23 @@ public:
     __device__ Float getLighting(const Point3<Float>& origin, const Vec3<Float>& dir, int* const buffer) const {
         unsigned char bufferSize = 0;
         buffer[bufferSize++] = 0;
+        
+        unsigned int nodeIndex = 0;
 
         while(bufferSize > 0){
-            const BVHNode node = bvhNodes[buffer[--bufferSize]];
+
+            BVHNode node = bvhNodes[nodeIndex];
 
             if(node.nbElements == 0){
-                const bool intersectLeft = node.bboxLeft.intersects(dir, origin);
-                const bool intersectRight = node.bboxRight.intersects(dir, origin);
 
-                if(intersectLeft){
-                    buffer[bufferSize++] = node.leftIndex;
+                if(node.bboxLeft.intersects(dir, origin)){
+                    nodeIndex++;
+                }else if(node.bboxRight.intersects(dir, origin)){
+                    nodeIndex+=node.leftIndex;
+                }else{
+                    return 1;
                 }
-                if(intersectRight){
-                    buffer[bufferSize++] = node.rightIndex;
-                }
+
             }else{
                 for(unsigned char i=0; i<node.nbElements; i++){
                     const Point3<Float> point = elementsMemory[node.elementsIndex+i];
@@ -143,6 +146,11 @@ public:
                         return 0;
                     }
                 }
+                nodeIndex++;
+            }
+            
+            if(nodeIndex >= nbNodes){
+                return 1;
             }
         }
         return 1;
@@ -177,15 +185,15 @@ public:
                 const unsigned int splitIndex = split(curSegment.head, curSize,  globalBbox);
                 Point3<Float>** middle = &(curSegment.head[splitIndex]);
 
-                curSegment.node->leftIndex  = BVHNodeCounter;
-                curSegment.node->bboxLeft.setEnglobing(curSegment.head, middle-curSegment.head, margin);
-                BVHNode* leftNode = new (&bvhNodes[BVHNodeCounter++]) BVHNode();
-                stack.push(ArraySegment<Float>{curSegment.head, middle, leftNode});
-
-                curSegment.node->rightIndex = BVHNodeCounter;
+                curSegment.node->rightIndex = curSegment.tail-middle;
                 curSegment.node->bboxRight.setEnglobing(middle, curSegment.tail-middle, margin);
                 BVHNode* rightNode = new (&bvhNodes[BVHNodeCounter++]) BVHNode();
                 stack.push(ArraySegment<Float>{middle, curSegment.tail, rightNode});
+
+                curSegment.node->leftIndex  = middle-curSegment.head;
+                curSegment.node->bboxLeft.setEnglobing(curSegment.head, middle-curSegment.head, margin);
+                BVHNode* leftNode = new (&bvhNodes[BVHNodeCounter++]) BVHNode();
+                stack.push(ArraySegment<Float>{curSegment.head, middle, leftNode});
             }
 
             nbNodes++;
@@ -298,11 +306,6 @@ private:
         for(int i=0; i<size; i++){
             points[i] = workingBuffer[i];
         }
-        /*if(nbLeft == 0){
-            std::cout<<"AAAA";
-        }else{
-            std::cout<<"OK\n";
-        }*/
         return nbLeft;
     }
 
