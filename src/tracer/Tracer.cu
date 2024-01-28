@@ -73,7 +73,7 @@ void renderGPU(Array2D<Float>& data, Array2D<Point3<Float>>& points, BVH& bvh, c
         const Float rnd2 = curand_uniform(&localRndState);
         const unsigned char segmentNumber = i%NB_STRATIFIED_DIRS;
         const Float cosThetaOverPdf = direction.setRandomInHemisphereCosineGPU(NB_STRATIFIED_DIRS, segmentNumber,rnd1,rnd2);
-        result += cosThetaOverPdf*bvh.getLighting(origin, direction, localBuffer);
+        result += cosThetaOverPdf*bvh.getLighting(origin, direction, localBuffer, localBufferSize);
     }
     data[index] = (result/(Float)raysPerPoint)*(ONE/(Float)PI); // Diffuse BSDF
 }
@@ -116,7 +116,7 @@ void Tracer::init(const bool useGPU, const bool prinInfos){
 
 void Tracer::trace(const bool useGPU, const unsigned int raysPerPoint){
     useGPURender = useGPU;
-    const unsigned int traceBufferSizePerThread = std::log2(bvh->size())+1;
+    const unsigned int traceBufferSizePerThread = std::log2(bvh->size());
 
     if(useGPU){
         const dim3 blocks(width/threads.x+1, height/threads.y+1);

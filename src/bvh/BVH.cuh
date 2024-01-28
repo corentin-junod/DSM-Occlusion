@@ -13,7 +13,7 @@
 
 #define TILE_SIZE (Float)0.5 
 
-constexpr unsigned char ELEMENTS_MAX_SIZE = 6; // Best is between 5 and 10
+constexpr unsigned char ELEMENTS_MAX_SIZE = 4;
 
 struct __align__(16) BVHNode{
     Bbox<Float> bboxLeft = Bbox<Float>();
@@ -123,54 +123,18 @@ public:
     __host__ __device__ int size() const {return nbNodes;}
     __host__ __device__ const BVHNode* root() const {return &bvhNodes[0];}
 
-    __device__ Float getLighting(const Point3<Float>& origin, const Vec3<Float>& dir, int* const buffer) const {
+    __device__ Float getLighting(const Point3<Float>& origin, const Vec3<Float>& dir, int* const buffer, const unsigned int bufferSize) const {
         unsigned int nodeIndex = 0;
-        unsigned char bufferSize = 0;
+        unsigned char curBufferSize = 0;
         const unsigned int maxIndex = nbNodes;
+        const Float margin = TILE_SIZE/TWO;
 
         /*while(nodeIndex < maxIndex){
             const BVHNode node = bvhNodes[nodeIndex];
 
-            if(node.nbElements == 0){
-                const bool intersectRight = node.bboxRight.intersects(dir, origin);
-                const bool intersectLeft  = node.bboxLeft.intersects(dir, origin);
-                const int newIndexLeft    = nodeIndex+1;
-                const int newIndexRight   = nodeIndex+node.sizeLeft+1;
-
-                if(intersectLeft && intersectRight){
-                    buffer[bufferSize++] = newIndexRight;
-                    nodeIndex = newIndexLeft;
-                }else if(intersectLeft){
-                    nodeIndex = newIndexLeft;
-                }else if(intersectRight){
-                    nodeIndex = newIndexRight;
-                }else if(bufferSize > 0){
-                    nodeIndex = buffer[--bufferSize];
-                }else{
-                    return 1;
-                }
-            }else{
-                for(unsigned char i=0; i<node.nbElements; i++){
-                    const Point3<Float> point = elementsMemory[node.elementsIndex+i];
-                    if(point != origin && intersectBox(point, dir, origin, TILE_SIZE/TWO)){
-                        return 0;
-                    }
-                }
-                if(bufferSize > 0){
-                    nodeIndex = buffer[--bufferSize];
-                }else{
-                    return 1;
-                }
-            }
-        }
-        return 1;*/
-
-        while(nodeIndex < maxIndex){
-            const BVHNode node = bvhNodes[nodeIndex];
-
             for(unsigned char i=0; i<node.nbElements; i++){
                 const Point3<Float> point = elementsMemory[node.elementsIndex+i];
-                if(point != origin && intersectBox(point, dir, origin, TILE_SIZE/TWO)){
+                if(point != origin && intersectBox(point, dir, origin, margin)){
                     return 0;
                 }
             }
@@ -180,51 +144,46 @@ public:
             const int newIndexLeft    = nodeIndex+1;
             const int newIndexRight   = nodeIndex+node.sizeLeft+1;
 
-            if(intersectLeft && intersectRight){
-                buffer[bufferSize++] = newIndexRight;
-            }
-
             if(intersectLeft){
                 nodeIndex = newIndexLeft;
             }else if(intersectRight){
                 nodeIndex = newIndexRight;
-            }else if(bufferSize > 0){
-                nodeIndex = buffer[--bufferSize];
+            }else if(curBufferSize > 0){
+                nodeIndex = buffer[--curBufferSize];
             }else{
                 return 1;
             }
-        }
-        return 1;
 
-
-        /*buffer[bufferSize++] = 0;
-        while(bufferSize > 0){
-            const BVHNode node = bvhNodes[buffer[--bufferSize]];
-
-            if(node.nbElements == 0){
-                const bool intersectLeft = node.bboxLeft.intersects(dir, origin);
-                const bool intersectRight = node.bboxRight.intersects(dir, origin);
-
-                const int currentIndex = buffer[bufferSize];
-
-                if(intersectLeft){
-                    buffer[bufferSize] = currentIndex+1;
-                    bufferSize++;
-                }
-                if(intersectRight){
-                    buffer[bufferSize] = currentIndex+1+node.sizeLeft;
-                    bufferSize++;
-                }
-            }else{
-                for(unsigned char i=0; i<node.nbElements; i++){
-                    const Point3<Float> point = elementsMemory[node.elementsIndex+i];
-                    if(point != origin && intersectBox(point, dir, origin, TILE_SIZE/TWO)){
-                        return 0;
-                    }
-                }
+            if(intersectLeft && intersectRight){
+                buffer[curBufferSize++] = newIndexRight;
             }
         }
         return 1;*/
+
+        while(nodeIndex < maxIndex){
+            const BVHNode node = bvhNodes[nodeIndex];
+
+            for(unsigned char i=0; i<node.nbElements; i++){
+                if(intersectBox(elementsMemory[node.elementsIndex+i], dir, origin, margin)){
+                    return 0;
+                }
+            }
+
+            const bool intersectRight = node.bboxRight.intersects(dir, origin);
+            const bool intersectLeft  = node.bboxLeft.intersects(dir, origin);
+            const int newIndexLeft    = nodeIndex+1;
+            const int newIndexRight   = nodeIndex+node.sizeLeft+1;
+
+            nodeIndex = intersectLeft*newIndexLeft + (!intersectLeft && intersectRight)*newIndexRight;
+
+            if(nodeIndex == 0){
+                if(curBufferSize <= 0) return 1;
+                nodeIndex = buffer[--curBufferSize];
+            }else if(intersectLeft && intersectRight){
+                buffer[curBufferSize++] = newIndexRight;
+            }
+        }
+        return 1;
     }
 
 
