@@ -9,24 +9,26 @@
 #include <iostream>
 #include <ostream>
 
+#include <vector>
+
 #define TILE_SIZE (Float)0.5 
 
 constexpr unsigned char ELEMENTS_MAX_SIZE = 6; // Best is between 5 and 10
 
 struct __align__(16) BVHNode{
-    unsigned char nbElements = 0;
-    unsigned int elementsIndex = 0;
-    unsigned int leftIndex = 0;
-    unsigned int rightIndex = 0;
     Bbox<Float> bboxLeft = Bbox<Float>();
     Bbox<Float> bboxRight = Bbox<Float>();
+    unsigned char nbElements   = 0;
+    unsigned int elementsIndex = 0;
+    unsigned int sizeLeft      = 0;
 };
 
 template <typename T>
 struct ArraySegment{
+    ArraySegment* parent;
     Point3<Float>** head;
     Point3<Float>** tail;
-    BVHNode* node;
+    BVHNode* node = nullptr;
 };
 
 template <typename T>
@@ -82,6 +84,7 @@ public:
         BVH tmp = BVH(nbPixels);
         tmp.freeAfterBuild();
         tmp.freeAllMemory();
+        tmp.nbNodes        = nbNodes;
         tmp.bvhNodes       = bvhNodesGPU;
         tmp.elementsMemory = elementsMemoryGPU;
         tmp.stackMemory    = stackMemoryGPU;
@@ -118,27 +121,34 @@ public:
 
     __host__ void printInfos(){std::cout<<"BVH : \n   Nodes : "<<nbNodes<<"\n";}
     __host__ __device__ int size() const {return nbNodes;}
+    __host__ __device__ const BVHNode* root() const {return &bvhNodes[0];}
 
     __device__ Float getLighting(const Point3<Float>& origin, const Vec3<Float>& dir, int* const buffer) const {
-        unsigned char bufferSize = 0;
-        buffer[bufferSize++] = 0;
-        
         unsigned int nodeIndex = 0;
+        unsigned char bufferSize = 0;
+        const unsigned int maxIndex = nbNodes;
 
-        while(bufferSize > 0){
-
-            BVHNode node = bvhNodes[nodeIndex];
+        /*while(nodeIndex < maxIndex){
+            const BVHNode node = bvhNodes[nodeIndex];
 
             if(node.nbElements == 0){
+                const bool intersectRight = node.bboxRight.intersects(dir, origin);
+                const bool intersectLeft  = node.bboxLeft.intersects(dir, origin);
+                const int newIndexLeft    = nodeIndex+1;
+                const int newIndexRight   = nodeIndex+node.sizeLeft+1;
 
-                if(node.bboxLeft.intersects(dir, origin)){
-                    nodeIndex++;
-                }else if(node.bboxRight.intersects(dir, origin)){
-                    nodeIndex+=node.leftIndex;
+                if(intersectLeft && intersectRight){
+                    buffer[bufferSize++] = newIndexRight;
+                    nodeIndex = newIndexLeft;
+                }else if(intersectLeft){
+                    nodeIndex = newIndexLeft;
+                }else if(intersectRight){
+                    nodeIndex = newIndexRight;
+                }else if(bufferSize > 0){
+                    nodeIndex = buffer[--bufferSize];
                 }else{
                     return 1;
                 }
-
             }else{
                 for(unsigned char i=0; i<node.nbElements; i++){
                     const Point3<Float> point = elementsMemory[node.elementsIndex+i];
@@ -146,57 +156,128 @@ public:
                         return 0;
                     }
                 }
-                nodeIndex++;
+                if(bufferSize > 0){
+                    nodeIndex = buffer[--bufferSize];
+                }else{
+                    return 1;
+                }
             }
-            
-            if(nodeIndex >= nbNodes){
+        }
+        return 1;*/
+
+        while(nodeIndex < maxIndex){
+            const BVHNode node = bvhNodes[nodeIndex];
+
+            for(unsigned char i=0; i<node.nbElements; i++){
+                const Point3<Float> point = elementsMemory[node.elementsIndex+i];
+                if(point != origin && intersectBox(point, dir, origin, TILE_SIZE/TWO)){
+                    return 0;
+                }
+            }
+
+            const bool intersectRight = node.bboxRight.intersects(dir, origin);
+            const bool intersectLeft  = node.bboxLeft.intersects(dir, origin);
+            const int newIndexLeft    = nodeIndex+1;
+            const int newIndexRight   = nodeIndex+node.sizeLeft+1;
+
+            if(intersectLeft && intersectRight){
+                buffer[bufferSize++] = newIndexRight;
+            }
+
+            if(intersectLeft){
+                nodeIndex = newIndexLeft;
+            }else if(intersectRight){
+                nodeIndex = newIndexRight;
+            }else if(bufferSize > 0){
+                nodeIndex = buffer[--bufferSize];
+            }else{
                 return 1;
             }
         }
         return 1;
+
+
+        /*buffer[bufferSize++] = 0;
+        while(bufferSize > 0){
+            const BVHNode node = bvhNodes[buffer[--bufferSize]];
+
+            if(node.nbElements == 0){
+                const bool intersectLeft = node.bboxLeft.intersects(dir, origin);
+                const bool intersectRight = node.bboxRight.intersects(dir, origin);
+
+                const int currentIndex = buffer[bufferSize];
+
+                if(intersectLeft){
+                    buffer[bufferSize] = currentIndex+1;
+                    bufferSize++;
+                }
+                if(intersectRight){
+                    buffer[bufferSize] = currentIndex+1+node.sizeLeft;
+                    bufferSize++;
+                }
+            }else{
+                for(unsigned char i=0; i<node.nbElements; i++){
+                    const Point3<Float> point = elementsMemory[node.elementsIndex+i];
+                    if(point != origin && intersectBox(point, dir, origin, TILE_SIZE/TWO)){
+                        return 0;
+                    }
+                }
+            }
+        }
+        return 1;*/
     }
 
+
     __host__ __device__ void build(Array2D<Point3<Float>*>& points) {
-        const Float margin = TILE_SIZE/(Float)2.1;
+        const Float margin = TILE_SIZE/TWO;
 
-        unsigned int BVHNodeCounter  = 0;
+        std::vector<int> stack = std::vector<int>();
+
         unsigned int elementsCounter = 0;
+        unsigned int nbSegments = 0;
 
-        Stack<Float> stack = Stack<Float>{stackMemory, 0};
-
-        BVHNode* root = new (&bvhNodes[BVHNodeCounter++]) BVHNode();
-        stack.push(ArraySegment<Float>{points.begin(), points.end(), root});
+        stack.push_back(nbSegments);
+        stackMemory[nbSegments++] = ArraySegment<Float>{nullptr, points.begin(), points.end()};
         
-        while(stack.size > 0){
-            ArraySegment curSegment = stack.pop();
-            const unsigned int curSize = curSegment.tail-curSegment.head;
+        while(stack.size() != 0){
+            ArraySegment<Float>* curSegment = &stackMemory[stack.back()];
+            stack.pop_back();
+            curSegment->node = new (&bvhNodes[nbNodes++]) BVHNode();
+
+            const unsigned int curSize = curSegment->tail-curSegment->head;
             
             if(curSize < ELEMENTS_MAX_SIZE){
                 for(int i=0; i<curSize; i++){
-                    elementsMemory[elementsCounter+i] = *(curSegment.head[i]);
+                    elementsMemory[elementsCounter+i] = *(curSegment->head[i]);
                 }
-                curSegment.node->elementsIndex = elementsCounter;
-                curSegment.node->nbElements = curSize;
+                curSegment->node->elementsIndex = elementsCounter;
+                curSegment->node->nbElements = curSize;
                 elementsCounter += curSize;
+
             }else{
 
                 Bbox<Float> globalBbox = Bbox<Float>();
-                globalBbox.setEnglobing(curSegment.head, curSize, margin);
-                const unsigned int splitIndex = split(curSegment.head, curSize,  globalBbox);
-                Point3<Float>** middle = &(curSegment.head[splitIndex]);
+                globalBbox.setEnglobing(curSegment->head, curSize, margin);
+                const unsigned int splitIndex = split(curSegment->head, curSize, globalBbox);
+                Point3<Float>** middle = &(curSegment->head[splitIndex]);
 
-                curSegment.node->rightIndex = curSegment.tail-middle;
-                curSegment.node->bboxRight.setEnglobing(middle, curSegment.tail-middle, margin);
-                BVHNode* rightNode = new (&bvhNodes[BVHNodeCounter++]) BVHNode();
-                stack.push(ArraySegment<Float>{middle, curSegment.tail, rightNode});
+                curSegment->node->bboxRight.setEnglobing(middle, curSegment->tail-middle, margin);
+                stack.push_back(nbSegments);
+                stackMemory[nbSegments++] = ArraySegment<Float>{curSegment, middle, curSegment->tail};
+                
 
-                curSegment.node->leftIndex  = middle-curSegment.head;
-                curSegment.node->bboxLeft.setEnglobing(curSegment.head, middle-curSegment.head, margin);
-                BVHNode* leftNode = new (&bvhNodes[BVHNodeCounter++]) BVHNode();
-                stack.push(ArraySegment<Float>{curSegment.head, middle, leftNode});
+                curSegment->node->bboxLeft.setEnglobing(curSegment->head, middle-curSegment->head, margin);
+                stack.push_back(nbSegments);
+                stackMemory[nbSegments++] = ArraySegment<Float>{curSegment, curSegment->head, middle};
             }
 
-            nbNodes++;
+            ArraySegment<Float>* segment = curSegment;
+            while(segment->parent != nullptr){
+                if(segment->node == segment->parent->node+1 ){ // If left child
+                    segment->parent->node->sizeLeft++;
+                }
+                segment = segment->parent;
+            }
         }
     }
 

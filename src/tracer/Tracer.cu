@@ -3,6 +3,7 @@
 #include "../utils/utils.cuh"
 #include "../array/Array.cuh"
 
+#include <iostream>
 #include <random>
 
 std::default_random_engine genEngine;
@@ -11,7 +12,7 @@ std::uniform_real_distribution<> uniform0_1 = std::uniform_real_distribution<>(0
 constexpr unsigned char NB_STRATIFIED_DIRS = 32;
 constexpr unsigned int SEED = 1423;
 
-constexpr dim3 threads(8,16);
+constexpr dim3 threads(8,8);
 
 
 __host__ __device__ 
@@ -51,7 +52,7 @@ void render(Array2D<Float>& data, const unsigned int index, const unsigned int r
 }
 
 __global__
-void renderGPU(Array2D<Float>& data, Array2D<Point3<Float>>& points, BVH& bvh, const unsigned int raysPerPoint, curandState* const rndState, unsigned int bufferSize){    
+void renderGPU(Array2D<Float>& data, Array2D<Point3<Float>>& points, BVH& bvh, const unsigned int raysPerPoint, curandState* const rndState, const int localBufferSize){    
     const int x = threadIdx.x + blockIdx.x * blockDim.x;
     const int y = threadIdx.y + blockIdx.y * blockDim.y;
     if(x>=data.width() || y>=data.height()) return;
@@ -60,12 +61,11 @@ void renderGPU(Array2D<Float>& data, Array2D<Point3<Float>>& points, BVH& bvh, c
     curandState localRndState = rndState[index];
     curand_init(SEED, index, 0, &localRndState);
 
-    extern __shared__ int traceBuffer[];
-    const unsigned int traceBufferOffset = bufferSize*(threadIdx.x+blockDim.x*threadIdx.y);
-    int* const localTraceBuffer = &traceBuffer[traceBufferOffset];
-
     const Point3<Float> origin(points[index].x, points[index].y, points[index].z);
     Vec3<Float> direction = Vec3<Float>(0,0,0);
+
+    extern __shared__ int buffer[];
+    int* const localBuffer = &buffer[localBufferSize*(threadIdx.x + blockDim.x*threadIdx.y)];
 
     Float result = 0;
     for(unsigned short i=0; i<raysPerPoint; i++){
@@ -73,7 +73,7 @@ void renderGPU(Array2D<Float>& data, Array2D<Point3<Float>>& points, BVH& bvh, c
         const Float rnd2 = curand_uniform(&localRndState);
         const unsigned char segmentNumber = i%NB_STRATIFIED_DIRS;
         const Float cosThetaOverPdf = direction.setRandomInHemisphereCosineGPU(NB_STRATIFIED_DIRS, segmentNumber,rnd1,rnd2);
-        result += cosThetaOverPdf*bvh.getLighting(origin, direction, localTraceBuffer);
+        result += cosThetaOverPdf*bvh.getLighting(origin, direction, localBuffer);
     }
     data[index] = (result/(Float)raysPerPoint)*(ONE/(Float)PI); // Diffuse BSDF
 }
@@ -116,7 +116,7 @@ void Tracer::init(const bool useGPU, const bool prinInfos){
 
 void Tracer::trace(const bool useGPU, const unsigned int raysPerPoint){
     useGPURender = useGPU;
-    const unsigned int traceBufferSizePerThread = std::log2(bvh->size());
+    const unsigned int traceBufferSizePerThread = std::log2(bvh->size())+1;
 
     if(useGPU){
         const dim3 blocks(width/threads.x+1, height/threads.y+1);
@@ -124,7 +124,8 @@ void Tracer::trace(const bool useGPU, const unsigned int raysPerPoint){
         Array2D<Point3<Float>>* pointsGPU = points.toGPU();
         BVH* bvhGPU = bvh->toGPU();
         Array2D<Float>* dataGPU = data.toGPU();
-        const unsigned int sharedMem = threads.x*threads.y*traceBufferSizePerThread*sizeof(int);
+        const unsigned int sharedMem = traceBufferSizePerThread*threads.x*threads.y*sizeof(int); 
+        std::cout << sharedMem << '\n';
         renderGPU<<<blocks, threads, sharedMem>>>(*dataGPU, *pointsGPU, *bvhGPU, raysPerPoint, randomState, traceBufferSizePerThread);
         syncGPU();
         data.fromGPU(dataGPU);
