@@ -6,7 +6,7 @@
 
 int main(){
     const bool PRINT_INFOS = true;
-    const char* filename = "data/input.tif";
+    const char* filename = "data/input.tif";//"data/input_cottards_25.tif";
     const char* outputFilename = "data/output.tif";
 
     const unsigned int RAYS_PER_POINT = 128;

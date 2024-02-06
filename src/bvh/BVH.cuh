@@ -18,9 +18,12 @@ constexpr unsigned char ELEMENTS_MAX_SIZE = 4;
 struct __align__(16) BVHNode{
     Bbox<Float> bboxLeft = Bbox<Float>();
     Bbox<Float> bboxRight = Bbox<Float>();
-    unsigned char nbElements   = 0;
     unsigned int elementsIndex = 0;
     unsigned int sizeLeft      = 0;
+    unsigned int sizeRight     = 0;
+    unsigned char nbElements   = 0;
+    /*unsigned char cacheIdLeft  = 255;
+    unsigned char cacheIdRight = 255;*/
 };
 
 template <typename T>
@@ -31,23 +34,14 @@ struct ArraySegment{
     BVHNode* node = nullptr;
 };
 
-template <typename T>
-struct Stack {
-    ArraySegment<Float>* data;
-    unsigned int size;
-    __host__ __device__ void push(ArraySegment<T> value) {data[size++] = value;}
-    __host__ __device__ ArraySegment<Float> pop() {return data[--size];}
-};
-
 
 class BVH{
-
 public:
     __host__ BVH(const unsigned int nbPixels): nbPixels(nbPixels) {
-        bvhNodes       = (BVHNode*)              calloc(2*nbPixels, sizeof(BVHNode));
-        elementsMemory = (Point3<Float>*)        calloc(nbPixels, sizeof(Point3<Float>));
-        stackMemory    = (ArraySegment<Float>*)  calloc(nbPixels,   sizeof(ArraySegment<Float>));
-        workingBuffer  = (Point3<Float>**)       calloc(nbPixels,   sizeof(Point3<Float>*));
+        bvhNodes       = (BVHNode*)             calloc(2*nbPixels, sizeof(BVHNode));
+        elementsMemory = (Point3<Float>*)       calloc(nbPixels,   sizeof(Point3<Float>));
+        stackMemory    = (ArraySegment<Float>*) calloc(nbPixels,   sizeof(ArraySegment<Float>));
+        workingBuffer  = (Point3<Float>**)      calloc(nbPixels,   sizeof(Point3<Float>*));
     }
 
     __host__ void freeAfterBuild(){
@@ -64,7 +58,7 @@ public:
 
     __host__ BVH* toGPU() const {
         BVHNode*  bvhNodesGPU       = (BVHNode*) allocGPU(2*nbPixels, sizeof(BVHNode));
-        Point3<Float>*   elementsMemoryGPU = (Point3<Float>*)  allocGPU(2*nbPixels, sizeof(Point3<Float>));
+        Point3<Float>*   elementsMemoryGPU = (Point3<Float>*)  allocGPU(nbPixels, sizeof(Point3<Float>));
         
         checkError(cudaMemcpy(bvhNodesGPU,       bvhNodes,       2*nbPixels*sizeof(BVHNode), cudaMemcpyHostToDevice));
         checkError(cudaMemcpy(elementsMemoryGPU, elementsMemory, nbPixels*sizeof(Point3<Float>),  cudaMemcpyHostToDevice));
@@ -121,73 +115,75 @@ public:
 
     __host__ void printInfos(){std::cout<<"BVH : \n   Nodes : "<<nbNodes<<"\n";}
     __host__ __device__ int size() const {return nbNodes;}
-    __host__ __device__ const BVHNode* root() const {return &bvhNodes[0];}
+    __host__ __device__ BVHNode* root() const {return &bvhNodes[0];}
 
-    __device__ Float getLighting(const Point3<Float>& origin, const Vec3<Float>& dir, int* const buffer, const unsigned int bufferSize) const {
+    __device__ Float getLighting(const Point3<Float>& origin, const Vec3<Float>& invDir) const {
         unsigned int nodeIndex = 0;
-        unsigned char curBufferSize = 0;
         const unsigned int maxIndex = nbNodes;
         const Float margin = TILE_SIZE/TWO;
-
-        /*while(nodeIndex < maxIndex){
-            const BVHNode node = bvhNodes[nodeIndex];
-
-            for(unsigned char i=0; i<node.nbElements; i++){
-                const Point3<Float> point = elementsMemory[node.elementsIndex+i];
-                if(point != origin && intersectBox(point, dir, origin, margin)){
-                    return 0;
-                }
-            }
-
-            const bool intersectRight = node.bboxRight.intersects(dir, origin);
-            const bool intersectLeft  = node.bboxLeft.intersects(dir, origin);
-            const int newIndexLeft    = nodeIndex+1;
-            const int newIndexRight   = nodeIndex+node.sizeLeft+1;
-
-            if(intersectLeft){
-                nodeIndex = newIndexLeft;
-            }else if(intersectRight){
-                nodeIndex = newIndexRight;
-            }else if(curBufferSize > 0){
-                nodeIndex = buffer[--curBufferSize];
-            }else{
-                return 1;
-            }
-
-            if(intersectLeft && intersectRight){
-                buffer[curBufferSize++] = newIndexRight;
-            }
-        }
-        return 1;*/
 
         while(nodeIndex < maxIndex){
             const BVHNode node = bvhNodes[nodeIndex];
 
             for(unsigned char i=0; i<node.nbElements; i++){
-                if(intersectBox(elementsMemory[node.elementsIndex+i], dir, origin, margin)){
+                if(intersectBox(elementsMemory[node.elementsIndex+i], invDir, origin, margin)){
                     return 0;
                 }
+                // continue ??
             }
 
-            const bool intersectRight = node.bboxRight.intersects(dir, origin);
-            const bool intersectLeft  = node.bboxLeft.intersects(dir, origin);
-            const int newIndexLeft    = nodeIndex+1;
-            const int newIndexRight   = nodeIndex+node.sizeLeft+1;
-
-            nodeIndex = intersectLeft*newIndexLeft + (!intersectLeft && intersectRight)*newIndexRight;
-
-            if(nodeIndex == 0){
-                if(curBufferSize <= 0) return 1;
-                nodeIndex = buffer[--curBufferSize];
-            }else if(intersectLeft && intersectRight){
-                buffer[curBufferSize++] = newIndexRight;
-            }
+            const bool intersectRight = node.bboxRight.intersects(invDir, origin);
+            const bool intersectLeft  = node.bboxLeft.intersects(invDir, origin);
+            
+            nodeIndex += intersectLeft + 
+                (!intersectLeft && intersectRight)*(node.sizeLeft+1) + 
+                (!intersectLeft && !intersectRight)*(node.sizeRight+node.sizeLeft+1);
         }
         return 1;
     }
 
+    __device__ Float getLighting2(const Point3<Float>& origin, const Vec3<Float>& invDir, BVHNode* const cache) const {
+        /*unsigned int nodeIndex = 0;
+        const unsigned int maxIndex = nbNodes;
+        const Float margin = TILE_SIZE/TWO;
 
-    __host__ __device__ void build(Array2D<Point3<Float>*>& points) {
+        unsigned char nextId = 0;
+
+        while(nodeIndex < maxIndex){
+
+            BVHNode node;
+            if(nextId < 64){
+                node = cache[nextId];
+                if(node.sizeLeft == 0){
+                    node = cache[nextId] = bvhNodes[nodeIndex];
+                }
+            }else{
+                node = bvhNodes[nodeIndex];
+            }
+
+            for(unsigned char i=0; i<node.nbElements; i++){
+                if(intersectBox(elementsMemory[node.elementsIndex+i], invDir, origin, margin)){
+                    return 0;
+                }
+                // continue ??
+            }
+
+            const bool intersectRight = node.bboxRight.intersects(invDir, origin);
+            const bool intersectLeft  = node.bboxLeft.intersects(invDir, origin);
+            
+            nodeIndex += intersectLeft + 
+                (!intersectLeft && intersectRight)*(node.sizeLeft+1) + 
+                (!intersectLeft && !intersectRight)*(node.sizeRight+node.sizeLeft+1);
+
+            nextId = intersectLeft * node.cacheIdLeft + 
+                (!intersectLeft && intersectRight)*(node.cacheIdRight) + 
+                (!intersectLeft && !intersectRight)*255;
+        }*/
+        return 1;
+    }
+
+
+    __host__ void build(Array2D<Point3<Float>*>& points) {
         const Float margin = TILE_SIZE/TWO;
 
         std::vector<int> stack = std::vector<int>();
@@ -234,10 +230,31 @@ public:
             while(segment->parent != nullptr){
                 if(segment->node == segment->parent->node+1 ){ // If left child
                     segment->parent->node->sizeLeft++;
+                }else{
+                    segment->parent->node->sizeRight++;
                 }
                 segment = segment->parent;
             }
         }
+
+        /*const unsigned int nbCachedNodes = 64;
+        int nodesIdFIFO[2*nbCachedNodes];
+        int headFIFO = 0;
+        int tailFIFO = 0;
+        nodesIdFIFO[headFIFO++] = 0;
+        bvhNodes[0].cacheIdLeft = 0;
+        bvhNodes[0].cacheIdRight = 1;
+        for(int i=0; headFIFO!=tailFIFO; i+=2){
+            int curNodeId = nodesIdFIFO[tailFIFO++];
+            BVHNode& node = bvhNodes[curNodeId];
+            node.cacheIdLeft = i+1;
+            node.cacheIdRight = i+2;
+            if(i<nbCachedNodes){
+                nodesIdFIFO[headFIFO++] = curNodeId+1;
+                nodesIdFIFO[headFIFO++] = curNodeId+node.sizeLeft;
+            }
+        }*/
+
     }
 
 private:
@@ -251,12 +268,11 @@ private:
     Point3<Float>**      workingBuffer;
 
 
-    __host__ __device__ bool intersectBox(const Point3<Float>& top, const Vec3<Float>& rayDir, const Point3<Float>& rayOrigin, const Float margin) const {
+    __host__ __device__ bool intersectBox(const Point3<Float>& top, const Vec3<Float>& invRayDir, const Point3<Float>& rayOrigin, const Float margin) const {
         Float min, max;
 
-        const Float xInverse = ONE / rayDir.x;
-        const Float tNearX = (top.x - margin - rayOrigin.x) * xInverse;
-        const Float tFarX  = (top.x + margin - rayOrigin.x) * xInverse;
+        const Float tNearX = (top.x - margin - rayOrigin.x) * invRayDir.x;
+        const Float tFarX  = (top.x + margin - rayOrigin.x) * invRayDir.x;
 
         if(tNearX > tFarX){
             min = tFarX;
@@ -266,9 +282,8 @@ private:
             max = tFarX;
         }
         
-        const Float yInverse = ONE / rayDir.y;
-        const Float tNearY = (top.y - margin - rayOrigin.y) * yInverse;
-        const Float tFarY  = (top.y + margin - rayOrigin.y) * yInverse;
+        const Float tNearY = (top.y - margin - rayOrigin.y) * invRayDir.y;
+        const Float tFarY  = (top.y + margin - rayOrigin.y) * invRayDir.y;
 
         if(tNearY > tFarY){
             min = min < tFarY  ? tFarY  : min;
@@ -278,11 +293,8 @@ private:
             max = max > tFarY  ? tFarY  : max;
         }
 
-        if(max < min && min > ZERO) return false;
-
-        const Float zInverse = ONE / rayDir.z;
-        const Float tNearZ = (-rayOrigin.z) * zInverse;
-        const Float tFarZ  = (top.z - rayOrigin.z) * zInverse;
+        const Float tNearZ = (-rayOrigin.z) * invRayDir.z;
+        const Float tFarZ  = (top.z - rayOrigin.z) * invRayDir.z;
 
        if(tNearZ > tFarZ){
             min = min < tFarZ  ? tFarZ  : min;

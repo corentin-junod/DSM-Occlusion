@@ -25,14 +25,15 @@ public:
         return x*other.x + y*other.y + z*other.z; 
     }
 
-    __device__ __forceinline__ Float setRandomInHemisphereCosineGPU(const unsigned char nbSegments, const unsigned char segmentNumber, const Float rndNumber1, const Float rndNumber2){
+    __device__ __forceinline__ Float setRandomInHemisphereCosineGPU(const Float nbSegments, const Float nbSamples, const unsigned char sampleId, const Float rndPhi, const Float rndTheta){
+        const Float currentSampleSegment = floorf(sampleId* fdividef(nbSegments, nbSamples));
         const Float segmentSize = fdividef(TWO_PI, nbSegments);
-        const Float phi = rndNumber1 * TWO_PI / (Float)segmentSize + (Float)segmentSize * (Float)segmentNumber;
-        const Float theta = acosf(sqrtf(rndNumber2));
-        const Float sinTheta = (Float)sin((float)theta);
-        x = sinTheta*(Float)cos((float)phi);
-        y = sinTheta*(Float)sin((float)phi);
-        z = (Float)cos((float)theta);
+        const Float phi = rndPhi * fdividef(TWO_PI,segmentSize) + segmentSize * currentSampleSegment;
+        const Float theta = acosf(sqrtf(rndTheta));
+        const Float sinTheta = sinf(theta);
+        x = sinTheta*cosf(phi);
+        y = sinTheta*sinf(phi);
+        z = cosf(theta);
         return PI; // pdf = cosTheta / PI, so cosTheta / pdf = PI
     }
 
