@@ -67,12 +67,9 @@ void renderGPU(Array2D<Float>& data, Array2D<Point3<Float>>& points, BVH& bvh, c
     curand_init(SEED, index, 0, &localRndState);
 
     for(int i=0; i<raysPerPoint/(threads.x*threads.y); i++){
-        sharedMem[(i+1)*threadIndex] = (i+1)*(Float)threadIndex/(Float)raysPerPoint + (curand_uniform(&localRndState)-0.5)/(Float)raysPerPoint;
+        const int index = (i+1)*threadIndex;
+        sharedMem[index] = (Float)index/(Float)raysPerPoint;
     }
-
-    /*if(threadIndex == threads.x*threads.y){
-        sharedMem[threadIndex+1] = (Float)threadIndex/raysPerPoint + curand_uniform(&localRndState) * 1.0/raysPerPoint - 1.0/(2.0*raysPerPoint);
-    }*/
 
     const Point3<Float> origin(points[index].x, points[index].y, points[index].z);
     Vec3<Float> direction = Vec3<Float>(0,0,0);
@@ -81,8 +78,8 @@ void renderGPU(Array2D<Float>& data, Array2D<Point3<Float>>& points, BVH& bvh, c
 
     Float result = 0;
     for(unsigned short i=0; i<raysPerPoint; i++){
-        const Float rndPhi   = fminf(fmaxf( sharedMem[i]   + 0.01*(curand_uniform(&localRndState)-0.5), 0), 1);
-        const Float rndTheta = fminf(fmaxf( sharedMem[i+1] + 0.01*(curand_uniform(&localRndState)-0.5), 0), 1);
+        const Float rndPhi   = fminf( sharedMem[i] + 0.005*curand_uniform(&localRndState), 1);
+        const Float rndTheta = sharedMem[i+1];
         const Float cosThetaOverPdf = direction.setRandomInHemisphereCosineGPU(NB_STRATIFIED_DIRS, raysPerPoint, i, rndPhi, rndTheta);
         const Vec3<Float> invDir(fdividef(1,direction.x), fdividef(1,direction.y), fdividef(1,direction.z));
         
