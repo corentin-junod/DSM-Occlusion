@@ -135,7 +135,6 @@ void Tracer::trace(const bool useGPU, const unsigned int raysPerPoint){
         Array2D<Float>* dataGPU = data.toGPU();
         //const unsigned int sharedMem = traceBufferSizePerThread*threads.x*threads.y*sizeof(int); 
         const unsigned int sharedMem = (raysPerPoint+1)*sizeof(Float);//+64*sizeof(BVHNode); 
-        std::cout << sharedMem << '\n';
         renderGPU<<<blocks, threads, sharedMem>>>(*dataGPU, *pointsGPU, *bvhGPU, raysPerPoint, randomState);
         syncGPU();
         data.fromGPU(dataGPU);
@@ -156,8 +155,6 @@ void Tracer::trace(const bool useGPU, const unsigned int raysPerPoint){
             #pragma omp atomic
             progress++;
             if(progress >= nextProgress*height){
-                std::cout << "Progress " << 100*nextProgress << "%\n";
-                std::flush(std::cout);
                 nextProgress += 0.1;
             }
         }

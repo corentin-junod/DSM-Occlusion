@@ -1,12 +1,12 @@
 #include "Raster.h"
 
-Raster::Raster(const char* const inputName, const char* const outputName) {
+Raster::Raster(const char* const filename, const Raster* const copyFrom) {
     GDALAllRegister();
-    GDALDataset* source = (GDALDataset*) GDALOpen(inputName, GA_ReadOnly);
-
-    dataset = source->GetDriver()->CreateCopy(outputName, source, false, NULL, NULL, NULL ); 
-    GDALClose((GDALDatasetH)source);
-
+    if(copyFrom == nullptr){
+        dataset = (GDALDataset*) GDALOpen(filename, GA_ReadOnly);
+    }else{
+        dataset = copyFrom->dataset->GetDriver()->CreateCopy(filename, copyFrom->dataset, false, NULL, NULL, NULL ); 
+    }
     dataBand = dataset->GetRasterBand(1);
     width  = dataBand->GetXSize();
     height = dataBand->GetYSize();
@@ -18,15 +18,15 @@ Raster::~Raster() {
     GDALClose((GDALDatasetH)dataset);
 }
 
-void Raster::readData(float* data) const{
-    const CPLErr result = dataBand->RasterIO(GF_Read, 0, 0, width, height, data, width, height, GDT_Float32, 0, 0);
+void Raster::readData(float* data, const unsigned int x, const unsigned int y, const unsigned int width, const unsigned int height) const {
+    const CPLErr result = dataBand->RasterIO(GF_Read, x, y, width, height, data, width, height, GDT_Float32, 0, 0);
     if(result == CE_Failure){
         std::cout << "Error during file reading";
     }
 }
 
-void Raster::writeData(float* data) const {
-    const CPLErr result = dataBand->RasterIO(GF_Write, 0, 0, width, height, data, width, height, GDT_Float32, 0, 0);
+void Raster::writeData(float* data, const unsigned int x, const unsigned int y, const unsigned int width, const unsigned int height) const {
+    const CPLErr result = dataBand->RasterIO(GF_Write, x, y, width, height, data, width, height, GDT_Float32, 0, 0);
     if(result == CE_Failure){
         std::cout << "Error during file writing";
     }
