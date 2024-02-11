@@ -17,7 +17,7 @@ public:
         z /= norm;
     }
 
-    __host__ __device__ T getNormSquared() const{
+    __host__ __device__ T getNormSquared() const {
         return x*x + y*y + z*z;
     }
 
@@ -25,7 +25,8 @@ public:
         return x*other.x + y*other.y + z*other.z; 
     }
 
-    __device__ __forceinline__ Float setRandomInHemisphereCosineGPU(const Float nbSegments, const Float nbSamples, const unsigned char sampleId, const Float rndPhi, const Float rndTheta){
+    __device__ __forceinline__ 
+    Float setRandomInHemisphereCosineGPU(const Float nbSegments, const Float nbSamples, const unsigned char sampleId, const Float rndPhi, const Float rndTheta){
         const Float currentSampleSegment = floorf(sampleId* fdividef(nbSegments, nbSamples));
         const Float segmentSize = fdividef(TWO_PI, nbSegments);
         const Float phi = rndPhi * fdividef(TWO_PI,segmentSize) + segmentSize * currentSampleSegment;
@@ -37,7 +38,8 @@ public:
         return PI; // pdf = cosTheta / PI, so cosTheta / pdf = PI
     }
 
-    __host__ Float setRandomInHemisphereCosineHost(const unsigned char nbSegments, const unsigned char segmentNumber, const Float rndNumber1, const Float rndNumber2){
+    __host__ 
+    Float setRandomInHemisphereCosineHost(const unsigned char nbSegments, const unsigned char segmentNumber, const Float rndNumber1, const Float rndNumber2){
         const Float segmentSize = (Float)2*(Float)PI/(Float)nbSegments;
         const Float phi = rndNumber1 * (Float)2*(Float)PI / (Float)segmentSize + (Float)segmentSize * (Float)segmentNumber;
         const Float theta = acos(sqrt((float)rndNumber2));
@@ -50,7 +52,8 @@ public:
         return cosTheta / pdf;
     }
 
-    __host__ Float setRandomInHemisphereUniform(const unsigned char nbSegments, const unsigned char segmentNumber, const Float rndNumber1, const Float rndNumber2){
+    __host__ 
+    Float setRandomInHemisphereUniform(const unsigned char nbSegments, const unsigned char segmentNumber, const Float rndNumber1, const Float rndNumber2){
         const Float segmentSize = (Float)2*(Float)PI/(Float)nbSegments;
         const Float phi = rndNumber1 * (Float)segmentSize + (Float)segmentSize * (Float)segmentNumber;
         const Float theta = (Float)acos((float)rndNumber2);

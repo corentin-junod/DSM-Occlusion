@@ -26,7 +26,6 @@ struct __align__(16) BVHNode{
     unsigned char cacheIdRight = 255;*/
 };
 
-template <typename T>
 struct ArraySegment{
     ArraySegment* parent;
     Point3<Float>** head;
@@ -40,7 +39,7 @@ public:
     __host__ BVH(const unsigned int nbPixels): nbPixels(nbPixels) {
         bvhNodes       = (BVHNode*)             calloc(2*nbPixels, sizeof(BVHNode));
         elementsMemory = (Point3<Float>*)       calloc(nbPixels,   sizeof(Point3<Float>));
-        stackMemory    = (ArraySegment<Float>*) calloc(nbPixels,   sizeof(ArraySegment<Float>));
+        stackMemory    = (ArraySegment*) calloc(nbPixels,   sizeof(ArraySegment));
         workingBuffer  = (Point3<Float>**)      calloc(nbPixels,   sizeof(Point3<Float>*));
     }
 
@@ -63,10 +62,10 @@ public:
         checkError(cudaMemcpy(bvhNodesGPU,       bvhNodes,       2*nbPixels*sizeof(BVHNode), cudaMemcpyHostToDevice));
         checkError(cudaMemcpy(elementsMemoryGPU, elementsMemory, nbPixels*sizeof(Point3<Float>),  cudaMemcpyHostToDevice));
 
-        ArraySegment<Float>* stackMemoryGPU = nullptr;
+        ArraySegment* stackMemoryGPU = nullptr;
         if(stackMemory != nullptr){
-            stackMemoryGPU    = (ArraySegment<Float>*)  allocGPU(nbPixels,   sizeof(ArraySegment<Float>));
-            checkError(cudaMemcpy(stackMemoryGPU, stackMemory, nbPixels*sizeof(ArraySegment<Float>), cudaMemcpyHostToDevice));
+            stackMemoryGPU    = (ArraySegment*)  allocGPU(nbPixels,   sizeof(ArraySegment));
+            checkError(cudaMemcpy(stackMemoryGPU, stackMemory, nbPixels*sizeof(ArraySegment), cudaMemcpyHostToDevice));
         }
 
         Point3<Float>** workingBufferGPU = nullptr;
@@ -100,7 +99,7 @@ public:
         freeGPU(tmp.elementsMemory);
 
         if(stackMemory != nullptr){
-            checkError(cudaMemcpy(stackMemory, tmp.stackMemory, nbPixels*sizeof(ArraySegment<Float>), cudaMemcpyDeviceToHost));
+            checkError(cudaMemcpy(stackMemory, tmp.stackMemory, nbPixels*sizeof(ArraySegment), cudaMemcpyDeviceToHost));
             freeGPU(tmp.stackMemory);
         }
         if(workingBuffer != nullptr){
@@ -183,7 +182,7 @@ public:
     }
 
 
-    __host__ void build(Array2D<Point3<Float>*>& points) {
+    void build(Array2D<Point3<Float>*>& points) {
         const Float margin = TILE_SIZE/TWO;
 
         std::vector<int> stack = std::vector<int>();
@@ -192,10 +191,10 @@ public:
         unsigned int nbSegments = 0;
 
         stack.push_back(nbSegments);
-        stackMemory[nbSegments++] = ArraySegment<Float>{nullptr, points.begin(), points.end()};
+        stackMemory[nbSegments++] = ArraySegment{nullptr, points.begin(), points.end()};
         
         while(stack.size() != 0){
-            ArraySegment<Float>* curSegment = &stackMemory[stack.back()];
+            ArraySegment* curSegment = &stackMemory[stack.back()];
             stack.pop_back();
             curSegment->node = new (&bvhNodes[nbNodes++]) BVHNode();
 
@@ -218,15 +217,15 @@ public:
 
                 curSegment->node->bboxRight.setEnglobing(middle, curSegment->tail-middle, margin);
                 stack.push_back(nbSegments);
-                stackMemory[nbSegments++] = ArraySegment<Float>{curSegment, middle, curSegment->tail};
+                stackMemory[nbSegments++] = ArraySegment{curSegment, middle, curSegment->tail};
                 
 
                 curSegment->node->bboxLeft.setEnglobing(curSegment->head, middle-curSegment->head, margin);
                 stack.push_back(nbSegments);
-                stackMemory[nbSegments++] = ArraySegment<Float>{curSegment, curSegment->head, middle};
+                stackMemory[nbSegments++] = ArraySegment{curSegment, curSegment->head, middle};
             }
 
-            ArraySegment<Float>* segment = curSegment;
+            ArraySegment* segment = curSegment;
             while(segment->parent != nullptr){
                 if(segment->node == segment->parent->node+1 ){ // If left child
                     segment->parent->node->sizeLeft++;
@@ -258,15 +257,13 @@ public:
     }
 
 private:
-
     const unsigned int nbPixels;
     unsigned int nbNodes = 0;
 
-    BVHNode*             bvhNodes;
-    Point3<Float>*       elementsMemory;
-    ArraySegment<Float>* stackMemory;
-    Point3<Float>**      workingBuffer;
-
+    BVHNode*        bvhNodes;
+    Point3<Float>*  elementsMemory;
+    ArraySegment*   stackMemory;
+    Point3<Float>** workingBuffer;
 
     __host__ __device__ bool intersectBox(const Point3<Float>& top, const Vec3<Float>& invRayDir, const Point3<Float>& rayOrigin, const Float margin) const {
         Float min, max;
@@ -360,5 +357,4 @@ private:
         }
         return nbLeft;
     }
-
 };

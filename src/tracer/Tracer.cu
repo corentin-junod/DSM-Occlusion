@@ -7,34 +7,12 @@
 #include <random>
 
 std::default_random_engine genEngine;
-std::uniform_real_distribution<> uniform0_1 = std::uniform_real_distribution<>(0.001, 1);
+std::uniform_real_distribution<> uniform0_1 = std::uniform_real_distribution<>(0.001, 1); // Not starting at zero to avoid dividing by zero
 
-constexpr unsigned char NB_STRATIFIED_DIRS = 64;
-constexpr unsigned int SEED = 1423;
+constexpr unsigned char NB_STRATIFIED_DIRS = 64; // TODO properly compute this number so that the render is not biased
+constexpr unsigned int SEED = 1423; // For reproducible runs, can be any value
 
 constexpr dim3 threads(8,8);
-
-
-__host__ __device__ 
-void initRender(const Array2D<Float>& data, Array2D<Point3<Float>>& points, Array2D<Point3<Float>*>& pointsPointers, BVH& bvh, const Float pixelSize){
-    for(unsigned int y=0; y<data.height(); y++){
-        for(unsigned int x=0; x<data.width(); x++){
-            const unsigned int index = y*data.width()+x;
-            points[index] = Point3<Float>((Float)x*pixelSize,(Float)y*pixelSize, data[index]);
-            pointsPointers[index] = &(points[index]);
-        }
-    }
-    bvh.build(pointsPointers);
-}
-
-/*__global__
-void initRenderGPU(const Array2D<Float>& data, Array2D<Point3<Float>>& points, Array2D<Point3<Float>*>& pointsPointers, BVH& bvh, const Float pixelSize) {
-    const unsigned int x = threadIdx.x + blockIdx.x * blockDim.x;
-    const unsigned int y = threadIdx.y + blockIdx.y * blockDim.y;
-    if(x>=data.width() || y>=data.height()) return;
-    initRender(data, points, pointsPointers, bvh, pixelSize);
-}*/
-
 
 /*__host__ 
 void render(Array2D<Float>& data, const unsigned int index, const unsigned int raysPerPoint, Array2D<Point3<Float>>& points, BVH& bvh, int* traceBuffer, const unsigned int traceBufferSize){
@@ -52,7 +30,7 @@ void render(Array2D<Float>& data, const unsigned int index, const unsigned int r
 }*/
 
 __global__
-void renderGPU(Array2D<Float>& data, Array2D<Point3<Float>>& points, BVH& bvh, const unsigned int raysPerPoint, curandState* const rndState){    
+void renderGPU(const Array2D<Float>& data, const Array2D<Point3<Float>>& points, const BVH& bvh, const unsigned int raysPerPoint, curandState* const rndState){    
     const int x = threadIdx.x + blockIdx.x * blockDim.x;
     const int y = threadIdx.y + blockIdx.y * blockDim.y;
     if(x>=data.width() || y>=data.height()) return;
@@ -60,21 +38,20 @@ void renderGPU(Array2D<Float>& data, Array2D<Point3<Float>>& points, BVH& bvh, c
     extern __shared__ Float sharedMem[];
     BVHNode* const cache = (BVHNode*) &sharedMem[threads.x*threads.y];
 
+    for(int i=0; i<raysPerPoint/(threads.x*threads.y); i++){
+        const int curIndex = (i+1)*(threadIdx.x + threadIdx.y * threads.x);
+        sharedMem[curIndex] = (float)curIndex/raysPerPoint;
+    }
+
     const unsigned int index = y*data.width() + x;
-    const unsigned int threadIndex = threadIdx.x + threadIdx.y * threads.x;
 
     curandState localRndState = rndState[index];
     curand_init(SEED, index, 0, &localRndState);
 
-    for(int i=0; i<raysPerPoint/(threads.x*threads.y); i++){
-        const int index = (i+1)*threadIndex;
-        sharedMem[index] = (Float)index/(Float)raysPerPoint;
-    }
-
     const Point3<Float> origin(points[index].x, points[index].y, points[index].z);
-    Vec3<Float> direction = Vec3<Float>(0,0,0);
+    Vec3<Float> direction = Vec3<Float>(0, 0, 0);
     
-    __syncthreads();
+    __syncthreads(); // Wait for each thread to initialize its part of the shared memory
 
     Float result = 0;
     for(unsigned short i=0; i<raysPerPoint; i++){
@@ -85,7 +62,7 @@ void renderGPU(Array2D<Float>& data, Array2D<Point3<Float>>& points, BVH& bvh, c
         
         result += cosThetaOverPdf*bvh.getLighting(origin, invDir);
     }
-    data[index] = (result/(Float)raysPerPoint)*(ONE/(Float)PI); // Diffuse BSDF
+    data[index] = (result/raysPerPoint)*ONE_OVER_PI; // Diffuse BSDF
 }
 
 Tracer::Tracer(Array2D<Float>& data, const Float pixelSize): 
@@ -99,32 +76,26 @@ Tracer::~Tracer(){
     free(bvh);
 }
 
-void Tracer::init(const bool useGPU, const bool prinInfos){
-    useGPUInit = useGPU;
-    randomState = (curandState*) allocGPU(width*height, sizeof(curandState)); // TODO this should also be initialized when on CPU
+void Tracer::init(const bool prinInfos){
+    randomState = (curandState*) allocGPU(width*height, sizeof(curandState));
     Array2D<Point3<Float>*> pointsPointers(data.width(), data.height());
 
-    /*if(useGPU){
-        BVH* bvhGPU = bvh->toGPU();
-        Array2D<Point3<Float>*>* pointsPointersGPU = pointsPointers.toGPU();
-        Array2D<Float>* dataGPU = data.toGPU();
-        Array2D<Point3<Float>>* pointsGPU = points.toGPU();
-        initRenderGPU<<<1,1>>>(*dataGPU, *pointsGPU, *pointsPointersGPU, *bvhGPU, pixelSize);
-        syncGPU();
-        points.fromGPU(pointsGPU);
-        data.fromGPU(dataGPU);
-        pointsPointers.fromGPU(pointsPointersGPU);
-        bvh->fromGPU(bvhGPU);
-    }else{*/
-        initRender(data, points, pointsPointers, *bvh, pixelSize);
-        if(prinInfos) bvh->printInfos();
-    //}
+    for(unsigned int y=0; y<data.height(); y++){
+        for(unsigned int x=0; x<data.width(); x++){
+            const unsigned int index = y*data.width()+x;
+            points[index] = Point3<Float>((Float)x*pixelSize,(Float)y*pixelSize, data[index]);
+            pointsPointers[index] = &(points[index]);
+        }
+    }
+    bvh->build(pointsPointers);
+
+    if(prinInfos){
+        bvh->printInfos();
+    }
     bvh->freeAfterBuild();
 }
 
-
 void Tracer::trace(const bool useGPU, const unsigned int raysPerPoint){
-    useGPURender = useGPU;
     const unsigned int traceBufferSizePerThread = std::log2(bvh->size());
 
     //if(useGPU){
@@ -133,7 +104,6 @@ void Tracer::trace(const bool useGPU, const unsigned int raysPerPoint){
         Array2D<Point3<Float>>* pointsGPU = points.toGPU();
         BVH* bvhGPU = bvh->toGPU();
         Array2D<Float>* dataGPU = data.toGPU();
-        //const unsigned int sharedMem = traceBufferSizePerThread*threads.x*threads.y*sizeof(int); 
         const unsigned int sharedMem = (raysPerPoint+1)*sizeof(Float);//+64*sizeof(BVHNode); 
         renderGPU<<<blocks, threads, sharedMem>>>(*dataGPU, *pointsGPU, *bvhGPU, raysPerPoint, randomState);
         syncGPU();

@@ -12,7 +12,7 @@ int main(int argc, char* argv[]){
     char* inputFilename      = nullptr;
     char* outputFilename     = nullptr;
     unsigned int rayPerPoint = 128;
-    unsigned int tileSize    = 1000;
+    unsigned int tileSize    = 800;
     float pixelSize          = 0.5;
 
     char opt;
@@ -84,7 +84,7 @@ int main(int argc, char* argv[]){
             Tracer tracer = Tracer(dataFloat, pixelSize);
 
             std::cout << "> Building BVH...\n";
-            tracer.init(false, false);
+            tracer.init(false);
 
             std::cout << "> Start tracing...\n";
             tracer.trace(true, rayPerPoint);

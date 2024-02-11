@@ -13,6 +13,10 @@ Raster::Raster(const char* const filename, const Raster* const copyFrom) {
 }
  
 Raster::~Raster() {
+    double min=0, max=0, mean=0, dev=0;
+    dataset->ClearStatistics();
+    dataBand->ComputeStatistics(false, &min, &max, &mean, &dev, NULL, NULL);
+    dataBand->SetStatistics(min, max, mean, dev);
     dataBand->FlushCache();
     dataset->FlushCache(true);
     GDALClose((GDALDatasetH)dataset);
@@ -30,11 +34,6 @@ void Raster::writeData(float* data, const unsigned int x, const unsigned int y, 
     if(result == CE_Failure){
         std::cout << "Error during file writing";
     }
-
-    dataset->ClearStatistics();
-    double min=0, max=0, mean=0, dev=0;
-    dataBand->ComputeStatistics(false, &min, &max, &mean, &dev, NULL, NULL);
-    dataBand->SetStatistics(min, max, mean, dev);
 }
 
 void Raster::printInfos(){
