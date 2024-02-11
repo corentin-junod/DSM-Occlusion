@@ -8,22 +8,19 @@
 #include <cstdio>
 #include <iostream>
 #include <ostream>
-
 #include <vector>
 
-constexpr float TILE_SIZE = 0.5;
-
-constexpr unsigned char ELEMENTS_MAX_SIZE = 4;
+constexpr byte ELEMENTS_MAX_SIZE = 4;
 
 struct __align__(16) BVHNode{
-    Bbox<float> bboxLeft = Bbox<float>();
+    Bbox<float> bboxLeft  = Bbox<float>();
     Bbox<float> bboxRight = Bbox<float>();
-    unsigned int elementsIndex = 0;
-    unsigned int sizeLeft      = 0;
-    unsigned int sizeRight     = 0;
-    unsigned char nbElements   = 0;
-    /*unsigned char cacheIdLeft  = 255;
-    unsigned char cacheIdRight = 255;*/
+    uint elementsIndex = 0;
+    uint sizeLeft      = 0;
+    uint sizeRight     = 0;
+    byte nbElements    = 0;
+    /*byte cacheIdLeft  = 255;
+    byte cacheIdRight = 255;*/
 };
 
 struct ArraySegment{
@@ -33,48 +30,52 @@ struct ArraySegment{
     BVHNode* node = nullptr;
 };
 
-
 class BVH{
 public:
-    __host__ BVH(const unsigned int nbPixels): nbPixels(nbPixels) {
+    __host__ BVH(const uint nbPixels, const float pixelSize): 
+    nbPixels(nbPixels), pixelSize(pixelSize) {
         bvhNodes       = (BVHNode*)        calloc(2*nbPixels, sizeof(BVHNode));
         elementsMemory = (Point3<float>*)  calloc(nbPixels,   sizeof(Point3<float>));
         stackMemory    = (ArraySegment*)   calloc(nbPixels,   sizeof(ArraySegment));
         workingBuffer  = (Point3<float>**) calloc(nbPixels,   sizeof(Point3<float>*));
     }
 
-    __host__ void freeAfterBuild(){
+    __host__ void freeAfterBuild() {
         free(stackMemory);
         free(workingBuffer);
         stackMemory   = nullptr;
         workingBuffer = nullptr;
     }
     
-    __host__ void freeAllMemory(){
+    __host__ void freeAllMemory() const {
         free(elementsMemory);
         free(bvhNodes);
     }
 
+    __host__ void printInfos() const {std::cout<<"BVH : \n   Nodes : "<<nbNodes<<"\n";}
+    __host__ __device__ int size() const {return nbNodes;}
+    __host__ __device__ BVHNode* root() const {return &bvhNodes[0];}
+
     __host__ BVH* toGPU() const {
         BVHNode* bvhNodesGPU = (BVHNode*) allocGPU(sizeof(BVHNode), 2*nbPixels);
         Point3<float>* elementsMemoryGPU = (Point3<float>*) allocGPU(sizeof(Point3<float>), nbPixels);
-        
-        checkError(cudaMemcpy(bvhNodesGPU,       bvhNodes,       2*nbPixels*sizeof(BVHNode), cudaMemcpyHostToDevice));
-        checkError(cudaMemcpy(elementsMemoryGPU, elementsMemory, nbPixels*sizeof(Point3<float>),  cudaMemcpyHostToDevice));
+
+        memCpuToGpu(bvhNodesGPU,       bvhNodes,       2*nbPixels*sizeof(BVHNode));
+        memCpuToGpu(elementsMemoryGPU, elementsMemory, nbPixels*sizeof(Point3<float>));
 
         ArraySegment* stackMemoryGPU = nullptr;
         if(stackMemory != nullptr){
             stackMemoryGPU = (ArraySegment*) allocGPU(sizeof(ArraySegment), nbPixels);
-            checkError(cudaMemcpy(stackMemoryGPU, stackMemory, nbPixels*sizeof(ArraySegment), cudaMemcpyHostToDevice));
+            memCpuToGpu(stackMemoryGPU, stackMemory, nbPixels*sizeof(ArraySegment));
         }
 
         Point3<float>** workingBufferGPU = nullptr;
         if(workingBuffer != nullptr){
             workingBufferGPU = (Point3<float>**) allocGPU(sizeof(Point3<float>*), nbPixels);
-            checkError(cudaMemcpy(workingBufferGPU, workingBuffer, nbPixels*sizeof(Point3<float>*), cudaMemcpyHostToDevice));
+            memCpuToGpu(workingBufferGPU, workingBuffer, nbPixels*sizeof(Point3<float>*));
         }
 
-        BVH tmp = BVH(nbPixels);
+        BVH tmp = BVH(nbPixels, pixelSize);
         tmp.freeAfterBuild();
         tmp.freeAllMemory();
         tmp.nbNodes        = nbNodes;
@@ -88,42 +89,39 @@ public:
     }
 
     __host__ void fromGPU(BVH* replica){
-        BVH tmp = BVH(nbPixels);
+        BVH tmp = BVH(nbPixels, pixelSize);
         tmp.freeAfterBuild();
         tmp.freeAllMemory();
-        checkError(cudaMemcpy(&tmp, replica, sizeof(BVH), cudaMemcpyDeviceToHost));
-        checkError(cudaMemcpy(bvhNodes,       tmp.bvhNodes,       2*nbPixels*sizeof(BVHNode),       cudaMemcpyDeviceToHost));
-        checkError(cudaMemcpy(elementsMemory, tmp.elementsMemory, nbPixels*sizeof(Point3<float>), cudaMemcpyDeviceToHost));
+        memGpuToCpu(&tmp,           replica,            sizeof(BVH));
+        memGpuToCpu(bvhNodes,       tmp.bvhNodes,       2*nbPixels*sizeof(BVHNode));
+        memGpuToCpu(elementsMemory, tmp.elementsMemory, nbPixels*sizeof(Point3<float>));
         
         freeGPU(tmp.bvhNodes);
         freeGPU(tmp.elementsMemory);
 
         if(stackMemory != nullptr){
-            checkError(cudaMemcpy(stackMemory, tmp.stackMemory, nbPixels*sizeof(ArraySegment), cudaMemcpyDeviceToHost));
+            memGpuToCpu(stackMemory, tmp.stackMemory, nbPixels*sizeof(ArraySegment));
             freeGPU(tmp.stackMemory);
         }
         if(workingBuffer != nullptr){
-            checkError(cudaMemcpy(workingBuffer, tmp.workingBuffer, nbPixels*sizeof(Point3<float>*), cudaMemcpyDeviceToHost));
+            memGpuToCpu(workingBuffer, tmp.workingBuffer, nbPixels*sizeof(Point3<float>*));
             freeGPU(tmp.workingBuffer);
         }
 
-        nbNodes = tmp.nbNodes;
+        nbNodes   = tmp.nbNodes;
+        pixelSize = tmp.pixelSize;
         freeGPU(replica);
     }
 
-    __host__ void printInfos(){std::cout<<"BVH : \n   Nodes : "<<nbNodes<<"\n";}
-    __host__ __device__ int size() const {return nbNodes;}
-    __host__ __device__ BVHNode* root() const {return &bvhNodes[0];}
-
     __device__ float getLighting(const Point3<float>& origin, const Vec3<float>& invDir) const {
-        unsigned int nodeIndex = 0;
-        const unsigned int maxIndex = nbNodes;
-        const float margin = TILE_SIZE/2.0;
+        uint nodeIndex = 0;
+        const uint maxIndex = nbNodes;
+        const float margin = pixelSize/2.0;
 
         while(nodeIndex < maxIndex){
             const BVHNode node = bvhNodes[nodeIndex];
 
-            for(unsigned char i=0; i<node.nbElements; i++){
+            for(byte i=0; i<node.nbElements; i++){
                 if(intersectBox(elementsMemory[node.elementsIndex+i], invDir, origin, margin)){
                     return 0;
                 }
@@ -141,11 +139,11 @@ public:
     }
 
     __device__ float getLighting2(const Point3<float>& origin, const Vec3<float>& invDir, BVHNode* const cache) const {
-        /*unsigned int nodeIndex = 0;
-        const unsigned int maxIndex = nbNodes;
-        const float margin = TILE_SIZE/TWO;
+        /*uint nodeIndex = 0;
+        const uint maxIndex = nbNodes;
+        const float margin = pixelSize/TWO;
 
-        unsigned char nextId = 0;
+        byte nextId = 0;
 
         while(nodeIndex < maxIndex){
 
@@ -159,7 +157,7 @@ public:
                 node = bvhNodes[nodeIndex];
             }
 
-            for(unsigned char i=0; i<node.nbElements; i++){
+            for(byte i=0; i<node.nbElements; i++){
                 if(intersectBox(elementsMemory[node.elementsIndex+i], invDir, origin, margin)){
                     return 0;
                 }
@@ -182,12 +180,12 @@ public:
 
 
     void build(Array2D<Point3<float>*>& points) {
-        const float margin = TILE_SIZE/2.0;
+        const float margin = pixelSize/2.0;
 
-        std::vector<int> stack = std::vector<int>();
+        std::vector<uint> stack = std::vector<uint>();
 
-        unsigned int elementsCounter = 0;
-        unsigned int nbSegments = 0;
+        uint elementsCounter = 0;
+        uint nbSegments = 0;
 
         stack.push_back(nbSegments);
         stackMemory[nbSegments++] = ArraySegment{nullptr, points.begin(), points.end()};
@@ -197,7 +195,7 @@ public:
             stack.pop_back();
             curSegment->node = new (&bvhNodes[nbNodes++]) BVHNode();
 
-            const unsigned int curSize = curSegment->tail-curSegment->head;
+            const uint curSize = curSegment->tail-curSegment->head;
             
             if(curSize < ELEMENTS_MAX_SIZE){
                 for(int i=0; i<curSize; i++){
@@ -211,7 +209,7 @@ public:
 
                 Bbox<float> globalBbox = Bbox<float>();
                 globalBbox.setEnglobing(curSegment->head, curSize, margin);
-                const unsigned int splitIndex = split(curSegment->head, curSize, globalBbox);
+                const uint splitIndex = split(curSegment->head, curSize, globalBbox);
                 Point3<float>** middle = &(curSegment->head[splitIndex]);
 
                 curSegment->node->bboxRight.setEnglobing(middle, curSegment->tail-middle, margin);
@@ -235,7 +233,7 @@ public:
             }
         }
 
-        /*const unsigned int nbCachedNodes = 64;
+        /*const uint nbCachedNodes = 64;
         int nodesIdFIFO[2*nbCachedNodes];
         int headFIFO = 0;
         int tailFIFO = 0;
@@ -256,8 +254,9 @@ public:
     }
 
 private:
-    const unsigned int nbPixels;
-    unsigned int nbNodes = 0;
+    float pixelSize; // TODO this member is always used divided by two, it can be stored divided by two
+    const uint nbPixels;
+    uint nbNodes = 0;
 
     BVHNode*        bvhNodes;
     Point3<float>*  elementsMemory;
@@ -305,7 +304,7 @@ private:
 
     __host__ __device__ bool intersectSphere(const Point3<float>& top, const Ray<float>& ray, const float radius) const {
         ray.getDirection().normalize();
-        const Point3<float> center = Point3<float>(top.x, top.y, top.z-TILE_SIZE/2.0);
+        const Point3<float> center = Point3<float>(top.x, top.y, top.z-pixelSize/2.0);
         const float radius_squared = radius*radius;
         const Vec3<float> d_co = ray.getOrigin() - center;
         const float d_co_norm_sqr = d_co.getNormSquared();
@@ -316,7 +315,7 @@ private:
         return delta >= 0 && t > 0;
     }
 
-    __host__ __device__ int split(Point3<float>** points, unsigned int size, const Bbox<float>& bbox) const {
+    __host__ __device__ int split(Point3<float>** points, uint size, const Bbox<float>& bbox) const {
         const float dx = bbox.getEdgeLength('X');
         const float dy = bbox.getEdgeLength('Y');
         //const float dz = bbox->getEdgeLength('Z');
@@ -324,7 +323,6 @@ private:
 
         int nbLeft  = 0;
         int nbRight = 0;
-
 
         for(int i=0; i<size; i++){
             Point3<float>* const point = points[i];

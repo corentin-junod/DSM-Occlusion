@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../utils/definitions.cuh"
-#include "cuda_fp16.h"
 #include <iostream>
 
 template<typename T>
@@ -26,7 +25,7 @@ public:
     }
 
     __device__ __forceinline__ 
-    float setRandomInHemisphereCosineGPU(const float nbSegments, const float nbSamples, const unsigned char sampleId, const float rndPhi, const float rndTheta){
+    float setRandomInHemisphereCosineGPU(const float nbSegments, const float nbSamples, const byte sampleId, const float rndPhi, const float rndTheta){
         const float currentSampleSegment = floorf(sampleId* fdividef(nbSegments, nbSamples));
         const float segmentSize = fdividef(TWO_PI, nbSegments);
         const float phi = rndPhi * fdividef(TWO_PI,segmentSize) + segmentSize * currentSampleSegment;
@@ -39,7 +38,7 @@ public:
     }
 
     __host__ 
-    float setRandomInHemisphereCosineHost(const unsigned char nbSegments, const unsigned char segmentNumber, const float rndNumber1, const float rndNumber2){
+    float setRandomInHemisphereCosineHost(const byte nbSegments, const byte segmentNumber, const float rndNumber1, const float rndNumber2){
         const float segmentSize = 2.0*PI/nbSegments;
         const float phi = rndNumber1 * TWO_PI / segmentSize + segmentSize * segmentNumber;
         const float theta = acos(sqrt(rndNumber2));
@@ -53,7 +52,7 @@ public:
     }
 
     __host__ 
-    float setRandomInHemisphereUniform(const unsigned char nbSegments, const unsigned char segmentNumber, const float rndNumber1, const float rndNumber2){
+    float setRandomInHemisphereUniform(const byte nbSegments, const byte segmentNumber, const float rndNumber1, const float rndNumber2){
         const float segmentSize = 2.0*PI/nbSegments;
         const float phi = rndNumber1 * segmentSize + segmentSize * segmentNumber;
         const float theta = acos(rndNumber2);

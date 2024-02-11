@@ -2,18 +2,17 @@
 #include <iostream>
 #include <string>
 
-#include "utils/utils.cuh"
 #include "IO/Raster.h"
 #include "tracer/Tracer.cuh"
 
-const char* const USAGE = "Usage : -i inputFile -o outputFile [-r raysPerPixel] [-t tileSize] [-p pixelSizeInMeter]\n";
+const char* const USAGE = "Usage : -i inputFile -o outputFile [-r raysPerPixel] [-t tileSize (in pixels)] [-p pixelSize (in meters)]\n";
 
 int main(int argc, char* argv[]){
-    char* inputFilename      = nullptr;
-    char* outputFilename     = nullptr;
-    unsigned int rayPerPoint = 128;
-    unsigned int tileSize    = 800;
-    float pixelSize          = 0.5;
+    char* inputFilename  = nullptr;
+    char* outputFilename = nullptr;
+    uint rayPerPoint     = 128;
+    uint tileSize        = 1000;
+    float pixelSize      = 0.5;
 
     char opt;
     while ( (opt=getopt(argc, argv, "i:o:r:t:p:")) != -1) {
@@ -56,32 +55,27 @@ int main(int argc, char* argv[]){
         printDevicesInfos();     
     }
 
-    const unsigned int nbTiles = std::ceil((float)rasterIn.getHeight()/tileSize) * std::ceil((float)rasterIn.getWidth()/tileSize);
+    const uint nbTiles = std::ceil((float)rasterIn.getHeight()/tileSize) * std::ceil((float)rasterIn.getWidth()/tileSize);
 
-    unsigned int nbTileProcessed = 0;
+    uint nbTileProcessed = 0;
     for(int y=0; y<rasterIn.getHeight(); y+=tileSize){
         for(int x=0; x<rasterIn.getWidth(); x+=tileSize){
-            const unsigned int width  = std::min(tileSize, rasterIn.getWidth()-x);
-            const unsigned int height = std::min(tileSize, rasterIn.getHeight()-y);
+            const uint width  = std::min(tileSize, rasterIn.getWidth()-x);
+            const uint height = std::min(tileSize, rasterIn.getHeight()-y);
 
-            const unsigned int xMin = std::max(0, x-TILE_BORDER);
-            const unsigned int yMin = std::max(0, y-TILE_BORDER);
-            const unsigned int xMax = std::min(rasterIn.getWidth(), x+width+TILE_BORDER);
-            const unsigned int yMax = std::min(rasterIn.getHeight(), y+height+TILE_BORDER);
-            const unsigned int widthBorder  = xMax - xMin;
-            const unsigned int heightBorder = yMax - yMin;
+            const uint xMin = std::max(0, x-TILE_BORDER);
+            const uint yMin = std::max(0, y-TILE_BORDER);
+            const uint xMax = std::min(rasterIn.getWidth(), x+width+TILE_BORDER);
+            const uint yMax = std::min(rasterIn.getHeight(), y+height+TILE_BORDER);
+            const uint widthBorder  = xMax - xMin;
+            const uint heightBorder = yMax - yMin;
 
             std::cout << "Processing tile " << nbTileProcessed+1 << "/" << nbTiles << " (" <<  100*nbTileProcessed/nbTiles << "%)...\n";
 
             Array2D<float> data(widthBorder, heightBorder);
             rasterIn.readData(data.begin(), xMin, yMin, widthBorder, heightBorder);
 
-            Array2D<float> dataFloat(widthBorder, heightBorder);
-            for(unsigned int i=0; i<data.size(); i++){
-                dataFloat[i] = (float)data[i];
-            }
-
-            Tracer tracer = Tracer(dataFloat, pixelSize);
+            Tracer tracer = Tracer(data, pixelSize);
 
             std::cout << "> Building BVH...\n";
             tracer.init(false);
@@ -90,18 +84,19 @@ int main(int argc, char* argv[]){
             tracer.trace(true, rayPerPoint);
 
             std::cout << "> Writing result...\n";
-            unsigned int i=0;
-            unsigned int j=0;
-            for(unsigned int curY=yMin; curY < yMax; curY++){
-                for(unsigned int curX=xMin; curX < xMax; curX++){
+            Array2D<float> dataCropped(width, height);
+            uint i=0;
+            uint j=0;
+            for(uint curY=yMin; curY < yMax; curY++){
+                for(uint curX=xMin; curX < xMax; curX++){
                     if(curY >= y && curX >= x && curY < y+height && curX < x+width){
-                        data[i++] = (float)dataFloat[j];
+                        dataCropped[i++] = data[j];
                     }
                     j++;
                 }
             }
 
-            rasterOut.writeData(data.begin(), x, y, width, height);
+            rasterOut.writeData(dataCropped.begin(), x, y, width, height);
             nbTileProcessed++;
         }
     }

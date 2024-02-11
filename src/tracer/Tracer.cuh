@@ -7,15 +7,12 @@ public:
     ~Tracer();
 
     void init(const bool prinInfos);
-    void trace(const bool useGPU, const unsigned int raysPerPoint);
+    void trace(const bool useGPU, const uint raysPerPoint);
 
 private:
-    const unsigned int width;
-    const unsigned int height;
     const float pixelSize;
-    bool useGPURender = false;
     
-    BVH* bvh; 
+    BVH bvh; 
     Array2D<float>& data;
     Array2D<Point3<float>> points;
     curandState* randomState = nullptr;

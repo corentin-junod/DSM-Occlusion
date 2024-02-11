@@ -22,14 +22,14 @@ Raster::~Raster() {
     GDALClose((GDALDatasetH)dataset);
 }
 
-void Raster::readData(float* data, const unsigned int x, const unsigned int y, const unsigned int width, const unsigned int height) const {
+void Raster::readData(float* data, const uint x, const uint y, const uint width, const uint height) const {
     const CPLErr result = dataBand->RasterIO(GF_Read, x, y, width, height, data, width, height, GDT_Float32, 0, 0);
     if(result == CE_Failure){
         std::cout << "Error during file reading";
     }
 }
 
-void Raster::writeData(float* data, const unsigned int x, const unsigned int y, const unsigned int width, const unsigned int height) const {
+void Raster::writeData(float* data, const uint x, const uint y, const uint width, const uint height) const {
     const CPLErr result = dataBand->RasterIO(GF_Write, x, y, width, height, data, width, height, GDT_Float32, 0, 0);
     if(result == CE_Failure){
         std::cout << "Error during file writing";
