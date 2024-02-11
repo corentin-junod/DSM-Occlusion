@@ -23,7 +23,7 @@ public:
     __host__ __device__ T* end()   const {return &m_data[m_width*m_height];}
 
     __host__ Array2D<T>* toGPU() {
-        T* dataOnGPU = (T*) allocGPU(m_width*m_height, sizeof(T));
+        T* dataOnGPU = (T*) allocGPU(sizeof(T), m_width*m_height);
         checkError(cudaMemcpy(dataOnGPU, m_data, sizeof(T)*m_width*m_height, cudaMemcpyHostToDevice));
 
         Array2D<T> tmpArray = Array2D<T>(m_width, m_height, false);

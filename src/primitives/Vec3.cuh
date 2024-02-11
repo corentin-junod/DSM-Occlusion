@@ -26,12 +26,12 @@ public:
     }
 
     __device__ __forceinline__ 
-    Float setRandomInHemisphereCosineGPU(const Float nbSegments, const Float nbSamples, const unsigned char sampleId, const Float rndPhi, const Float rndTheta){
-        const Float currentSampleSegment = floorf(sampleId* fdividef(nbSegments, nbSamples));
-        const Float segmentSize = fdividef(TWO_PI, nbSegments);
-        const Float phi = rndPhi * fdividef(TWO_PI,segmentSize) + segmentSize * currentSampleSegment;
-        const Float theta = acosf(sqrtf(rndTheta));
-        const Float sinTheta = sinf(theta);
+    float setRandomInHemisphereCosineGPU(const float nbSegments, const float nbSamples, const unsigned char sampleId, const float rndPhi, const float rndTheta){
+        const float currentSampleSegment = floorf(sampleId* fdividef(nbSegments, nbSamples));
+        const float segmentSize = fdividef(TWO_PI, nbSegments);
+        const float phi = rndPhi * fdividef(TWO_PI,segmentSize) + segmentSize * currentSampleSegment;
+        const float theta = acosf(sqrtf(rndTheta));
+        const float sinTheta = sinf(theta);
         x = sinTheta*cosf(phi);
         y = sinTheta*sinf(phi);
         z = cosf(theta);
@@ -39,30 +39,30 @@ public:
     }
 
     __host__ 
-    Float setRandomInHemisphereCosineHost(const unsigned char nbSegments, const unsigned char segmentNumber, const Float rndNumber1, const Float rndNumber2){
-        const Float segmentSize = (Float)2*(Float)PI/(Float)nbSegments;
-        const Float phi = rndNumber1 * (Float)2*(Float)PI / (Float)segmentSize + (Float)segmentSize * (Float)segmentNumber;
-        const Float theta = acos(sqrt((float)rndNumber2));
-        const Float sinTheta = sin((float)theta);
-        const Float cosTheta = cos((float)theta);
-        x = sinTheta*(Float)cos((float)phi);
-        y = sinTheta*(Float)sin((float)phi);
+    float setRandomInHemisphereCosineHost(const unsigned char nbSegments, const unsigned char segmentNumber, const float rndNumber1, const float rndNumber2){
+        const float segmentSize = 2.0*PI/nbSegments;
+        const float phi = rndNumber1 * TWO_PI / segmentSize + segmentSize * segmentNumber;
+        const float theta = acos(sqrt(rndNumber2));
+        const float sinTheta = sin(theta);
+        const float cosTheta = cos(theta);
+        x = sinTheta*cos(phi);
+        y = sinTheta*sin(phi);
         z = cosTheta;
-        const Float pdf = cosTheta / PI;
+        const float pdf = cosTheta / PI;
         return cosTheta / pdf;
     }
 
     __host__ 
-    Float setRandomInHemisphereUniform(const unsigned char nbSegments, const unsigned char segmentNumber, const Float rndNumber1, const Float rndNumber2){
-        const Float segmentSize = (Float)2*(Float)PI/(Float)nbSegments;
-        const Float phi = rndNumber1 * (Float)segmentSize + (Float)segmentSize * (Float)segmentNumber;
-        const Float theta = (Float)acos((float)rndNumber2);
-        const Float sinTheta = sin((float)theta);
-        const Float cosTheta = cos((float)theta);
-        x = sinTheta*(Float)cos((float)phi);
-        y = sinTheta*(Float)sin((float)phi);
+    float setRandomInHemisphereUniform(const unsigned char nbSegments, const unsigned char segmentNumber, const float rndNumber1, const float rndNumber2){
+        const float segmentSize = 2.0*PI/nbSegments;
+        const float phi = rndNumber1 * segmentSize + segmentSize * segmentNumber;
+        const float theta = acos(rndNumber2);
+        const float sinTheta = sin(theta);
+        const float cosTheta = cos(theta);
+        x = sinTheta*cos(phi);
+        y = sinTheta*sin(phi);
         z = cosTheta;
-        const Float pdf = (Float)1/((Float)2*PI);
+        const float pdf = 1.0/TWO_PI;
         return cosTheta / pdf;
     };
 

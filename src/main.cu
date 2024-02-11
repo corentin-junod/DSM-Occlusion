@@ -76,9 +76,9 @@ int main(int argc, char* argv[]){
             Array2D<float> data(widthBorder, heightBorder);
             rasterIn.readData(data.begin(), xMin, yMin, widthBorder, heightBorder);
 
-            Array2D<Float> dataFloat(widthBorder, heightBorder);
+            Array2D<float> dataFloat(widthBorder, heightBorder);
             for(unsigned int i=0; i<data.size(); i++){
-                dataFloat[i] = (Float)data[i];
+                dataFloat[i] = (float)data[i];
             }
 
             Tracer tracer = Tracer(dataFloat, pixelSize);

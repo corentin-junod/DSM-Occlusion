@@ -47,17 +47,17 @@ public:
         }
     }
 
-    __host__ __device__ const Point3<T> getCenter() const {return Point3<T>( (maxX+minX)/TWO, (maxY+minY)/TWO, (maxZ/*+minZ*/)/TWO );}
+    __host__ __device__ const Point3<T> getCenter() const {return Point3<T>( (maxX+minX)/2.0, (maxY+minY)/2.0, (maxZ/*+minZ*/)/2.0 );}
 
-    __host__ bool intersects(const Ray<Float>& ray) const {
-        Float min, max;
+    __host__ bool intersects(const Ray<float>& ray) const {
+        float min, max;
 
         const Vec3<T>& rayDir = ray.getDirection();
         const Point3<T>& rayOrigin = ray.getOrigin();
 
-        const Float xInverse = 1 / rayDir.x;
-        const Float tNearX = (minX - rayOrigin.x) * xInverse;
-        const Float tFarX  = (maxX - rayOrigin.x) * xInverse;
+        const float xInverse = 1 / rayDir.x;
+        const float tNearX = (minX - rayOrigin.x) * xInverse;
+        const float tFarX  = (maxX - rayOrigin.x) * xInverse;
 
         if(tNearX > tFarX){
             min = tFarX;
@@ -67,9 +67,9 @@ public:
             max = tFarX;
         }
         
-        const Float yInverse = 1 / rayDir.y;
-        const Float tNearY = (minY - rayOrigin.y) * yInverse;
-        const Float tFarY  = (maxY - rayOrigin.y) * yInverse;
+        const float yInverse = 1 / rayDir.y;
+        const float tNearY = (minY - rayOrigin.y) * yInverse;
+        const float tFarY  = (maxY - rayOrigin.y) * yInverse;
 
         if(tNearY > tFarY){
             min = min < tFarY  ? tFarY  : min;
@@ -81,9 +81,9 @@ public:
 
         if(max < min) return false;
 
-        const Float zInverse = 1 / rayDir.z;
-        const Float tNearZ = (/*minZ */- rayOrigin.z) * zInverse;
-        const Float tFarZ  = (maxZ - rayOrigin.z) * zInverse;
+        const float zInverse = 1 / rayDir.z;
+        const float tNearZ = (/*minZ */- rayOrigin.z) * zInverse;
+        const float tFarZ  = (maxZ - rayOrigin.z) * zInverse;
 
        if(tNearZ > tFarZ){
             min = min < tFarZ  ? tFarZ  : min;
@@ -93,20 +93,20 @@ public:
             max = max > tFarZ  ? tFarZ  : max;
         }
 
-        return min < max && max > ZERO;
+        return min < max && max > 0;
     }
 
-    __device__ bool intersects(const Vec3<Float>& invRayDir, const Point3<Float>& rayOrigin) const {
-        Float min, max;
+    __device__ bool intersects(const Vec3<float>& invRayDir, const Point3<float>& rayOrigin) const {
+        float min, max;
 
-        const Float tNearX = (minX - rayOrigin.x) * invRayDir.x;
-        const Float tFarX  = (maxX - rayOrigin.x) * invRayDir.x;
+        const float tNearX = (minX - rayOrigin.x) * invRayDir.x;
+        const float tFarX  = (maxX - rayOrigin.x) * invRayDir.x;
 
         min = fminf(tNearX, tFarX);
         max = fmaxf(tNearX, tFarX);
         
-        const Float tNearY = (minY - rayOrigin.y) * invRayDir.y;
-        const Float tFarY  = (maxY - rayOrigin.y) * invRayDir.y;
+        const float tNearY = (minY - rayOrigin.y) * invRayDir.y;
+        const float tFarY  = (maxY - rayOrigin.y) * invRayDir.y;
 
         /*min = (tNearY > tFarY)*fmaxf(tFarY, min)+ (tNearY <= tFarY)*fmaxf(tNearY, min);
         max = (tNearY > tFarY)*fminf(tNearY, max)+ (tNearY <= tFarY)*fminf(tFarY, max);*/
@@ -119,8 +119,8 @@ public:
             max = fminf(tFarY, max);
         }
 
-        const Float tNearZ = (/*minZ*/ - rayOrigin.z) * invRayDir.z;
-        const Float tFarZ  = (maxZ - rayOrigin.z) * invRayDir.z;
+        const float tNearZ = (/*minZ*/ - rayOrigin.z) * invRayDir.z;
+        const float tFarZ  = (maxZ - rayOrigin.z) * invRayDir.z;
 
         if(tNearZ > tFarZ){
             min = fmaxf(tFarZ, min);
@@ -130,7 +130,7 @@ public:
             max = fminf(tFarZ, max);
         }
 
-        return min < max && max > ZERO;
+        return min < max && max > 0;
     }
 
 private:

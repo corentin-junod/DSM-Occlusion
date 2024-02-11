@@ -1,22 +1,11 @@
 #include "utils.cuh"
 
-void* allocMemory(const unsigned int count, const unsigned int size, const bool useGPU){
-    return useGPU ? allocGPU(count, size) : calloc(count, size);
-}
-
-void freeMemory(void* const memory, const bool useGPU){
-    return useGPU ? freeGPU(memory) : free(memory);
-}
+#include <stdio.h>
+#include <iostream>
 
 void* allocGPU(const unsigned int count, const unsigned int size){
     void* result = nullptr;
     checkError(cudaMalloc(&result, count*size));
-    return result;
-}
-
-void* allocGPU(const unsigned int size){
-    void* result = nullptr;
-    checkError(cudaMalloc(&result, size));
     return result;
 }
 
