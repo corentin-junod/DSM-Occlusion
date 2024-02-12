@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include "gdal_priv.h"
+#include "../utils/definitions.cuh"
 
 class Raster{
 

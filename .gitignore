@@ -3,3 +3,5 @@ data/*
 *.o
 *.ppm
 TODO
+VSProject/.vs
+VSProject/x64

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "definitions.cuh"
 #define checkError(val) check_error((val), #val, __FILE__, __LINE__)
 
 void* allocGPU(const uint size, const uint count = 1);

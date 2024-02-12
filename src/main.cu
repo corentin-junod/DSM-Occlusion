@@ -8,13 +8,13 @@
 const char* const USAGE = "Usage : -i inputFile -o outputFile [-r raysPerPixel] [-t tileSize (in pixels)] [-p pixelSize (in meters)]\n";
 
 int main(int argc, char* argv[]){
-    char* inputFilename  = nullptr;
-    char* outputFilename = nullptr;
-    uint rayPerPoint     = 128;
+    //char* inputFilename  = nullptr;
+    //char* outputFilename = nullptr;
+    uint rayPerPoint     = 256;
     uint tileSize        = 1000;
-    float pixelSize      = 0.5;
+    float pixelSize      = 0.1;
 
-    char opt;
+    /*char opt;
     while ( (opt=getopt(argc, argv, "i:o:r:t:p:")) != -1) {
         switch (opt) {
             case 'i':
@@ -36,7 +36,9 @@ int main(int argc, char* argv[]){
                 std::cout << USAGE;
                 exit(EXIT_FAILURE);
         }
-    }
+    }*/
+    const char* inputFilename = "./input.tif";
+    const char* outputFilename = "./output.tif";
 
     if(inputFilename == nullptr || outputFilename == nullptr || pixelSize <= 0){
         std::cout << USAGE;

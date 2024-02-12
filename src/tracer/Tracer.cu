@@ -1,5 +1,7 @@
 #include "Tracer.cuh"
 
+#include "device_launch_parameters.h"
+
 #include "../utils/utils.cuh"
 #include "../array/Array.cuh"
 
@@ -11,9 +13,7 @@ std::uniform_real_distribution<> uniform0_1 = std::uniform_real_distribution<>(0
 
 constexpr byte NB_STRATIFIED_DIRS = 64; // TODO properly compute this number so that the render is not biased
 constexpr uint SEED = 1423; // For reproducible runs, can be any value
-
-constexpr dim3 blockDims(8,8);
-
+constexpr uint BLOCK_DIM_SIZE = 8;
 __global__
 void renderGPU(const Array2D<float>& data, const Array2D<Point3<float>>& points, const BVH& bvh, const uint raysPerPoint, curandState* const rndState){    
     const int x = threadIdx.x + blockIdx.x * blockDim.x;
@@ -24,23 +24,26 @@ void renderGPU(const Array2D<float>& data, const Array2D<Point3<float>>& points,
     extern __shared__ float sharedMem[];
     //BVHNode* const cache = (BVHNode*) &sharedMem[threads.x*threads.y];
 
-    for(int i=0; i<raysPerPoint/(blockDims.x*blockDims.y); i++){
-        const int curIndex = (i+1)*(threadIdx.x + threadIdx.y * blockDims.x);
+    /*for (int i = 0; i<raysPerPoint / (BLOCK_DIM_SIZE * BLOCK_DIM_SIZE); i++) {
+        const int curIndex = (i+1)*(threadIdx.x + threadIdx.y * BLOCK_DIM_SIZE);
         sharedMem[curIndex] = (float)curIndex/raysPerPoint;
-    }
+    }*/
 
     curandState localRndState = rndState[index];
     curand_init(SEED, index, 0, &localRndState);
 
     const Point3<float> origin(points[index].x, points[index].y, points[index].z);
-    Vec3<float> direction = Vec3<float>(0, 0, 0);
+    Vec3<float> direction = Vec3<float>(0.0, 0.0, 0.0);
     
     __syncthreads(); // Wait for each thread to initialize its part of the shared memory
 
     float result = 0;
     for(unsigned short i=0; i<raysPerPoint; i++){
-        const float rndPhi = fminf( sharedMem[i] + 0.005*curand_uniform(&localRndState), 1);
-        const float cosThetaOverPdf = direction.setRandomInHemisphereCosineGPU(NB_STRATIFIED_DIRS, raysPerPoint, i, rndPhi, sharedMem[i+1]);
+        //const float rndPhi = fminf( sharedMem[i] + 0.005*curand_uniform(&localRndState), 1);
+        const float rndPhi = curand_uniform(&localRndState);
+        // const float rndTheta = sharedMem[i+1];
+        const float rndTheta = curand_uniform(&localRndState);
+        const float cosThetaOverPdf = direction.setRandomInHemisphereCosineGPU(NB_STRATIFIED_DIRS, raysPerPoint, i, rndPhi, rndTheta);
         const Vec3<float> invDir(fdividef(1,direction.x), fdividef(1,direction.y), fdividef(1,direction.z));
         result += cosThetaOverPdf*bvh.getLighting(origin, invDir);
     }
@@ -78,6 +81,7 @@ void Tracer::init(const bool prinInfos){
 
 void Tracer::trace(const bool useGPU, const uint raysPerPoint){
     const uint traceBufferSizePerThread = std::log2(bvh.size());
+    const dim3 blockDims(BLOCK_DIM_SIZE, BLOCK_DIM_SIZE);
 
     //if(useGPU){
         const dim3 gridDims(data.width()/blockDims.x+1, data.height()/blockDims.y+1);
