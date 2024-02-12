@@ -1,11 +1,20 @@
 #include <cstdlib>
 #include <iostream>
 #include <string>
+#include <chrono>
+#include <iomanip>
 
 #include "IO/Raster.h"
 #include "tracer/Tracer.cuh"
 
 const char* const USAGE = "Usage : -i inputFile -o outputFile [-r raysPerPixel] [-t tileSize (in pixels)] [-p pixelSize (in meters)]\n";
+
+std::ostream& cout() {
+    time_t time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+    std::tm ltime;
+    localtime_s(&ltime, &time);
+    return std::cout << "[" << std::put_time(&ltime, "%d.%m.%Y %H:%M:%S") << "]  ";
+}
 
 int main(int argc, char* argv[]){
     //char* inputFilename  = nullptr;
@@ -37,8 +46,8 @@ int main(int argc, char* argv[]){
                 exit(EXIT_FAILURE);
         }
     }*/
-    const char* inputFilename = "./input.tif";
-    const char* outputFilename = "./output.tif";
+    const char* inputFilename = "./input.tif"; 
+    const char* outputFilename = "./output.tif"; 
 
     if(inputFilename == nullptr || outputFilename == nullptr || pixelSize <= 0){
         std::cout << USAGE;
@@ -72,20 +81,20 @@ int main(int argc, char* argv[]){
             const uint widthBorder  = xMax - xMin;
             const uint heightBorder = yMax - yMin;
 
-            std::cout << "Processing tile " << nbTileProcessed+1 << "/" << nbTiles << " (" <<  100*nbTileProcessed/nbTiles << "%)...\n";
+            cout() << "Processing tile " << nbTileProcessed+1 << "/" << nbTiles << " (" <<  100*nbTileProcessed/nbTiles << "%)...\n";
 
             Array2D<float> data(widthBorder, heightBorder);
             rasterIn.readData(data.begin(), xMin, yMin, widthBorder, heightBorder);
 
             Tracer tracer = Tracer(data, pixelSize);
 
-            std::cout << "> Building BVH...\n";
+            cout() << "> Building BVH...\n";
             tracer.init(false);
 
-            std::cout << "> Start tracing...\n";
+            cout() << "> Start tracing...\n";
             tracer.trace(true, rayPerPoint);
 
-            std::cout << "> Writing result...\n";
+            cout() << "> Writing result...\n";
             Array2D<float> dataCropped(width, height);
             uint i=0;
             uint j=0;
@@ -103,6 +112,6 @@ int main(int argc, char* argv[]){
         }
     }
 
-    std::cout << "Finished \n";
+    cout() << "Finished \n";
     return EXIT_SUCCESS;
 }
