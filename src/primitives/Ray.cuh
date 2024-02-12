@@ -1,9 +1,9 @@
 #pragma once
 
-#include <iostream>
-
 #include "Vec3.cuh"
 #include "Point3.cuh"
+
+#include <iostream>
 
 template<typename T>
 class Ray{
@@ -27,7 +27,7 @@ private:
 };
 
 template<typename T>
-__host__ std::ostream& operator<<(std::ostream& os, const Ray<T>& ray){
+std::ostream& operator<<(std::ostream& os, const Ray<T>& ray){
     os << "Ray: Origin("<<ray.origin.x<<","<<ray.origin.y<<","<<ray.origin.z<<") Direction("<<ray.direction.x<<","<<ray.direction.y<<","<<ray.direction.z<<")";
     return os;
 };

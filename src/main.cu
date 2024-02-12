@@ -1,71 +1,62 @@
 #include <cstdlib>
-#include <iostream>
-#include <string>
-#include <chrono>
-#include <iomanip>
+#include <cstring>
 
+#include "utils/definitions.cuh"
+#include "utils/logging.h"
 #include "IO/Raster.h"
 #include "tracer/Tracer.cuh"
 
-const char* const USAGE = "Usage : -i inputFile -o outputFile [-r raysPerPixel] [-t tileSize (in pixels)] [-p pixelSize (in meters)]\n";
+const char* const USAGE = "Usage : -i inputFile [-o outputFile] [-r raysPerPixel] [-t tile size (in pixels)] [-b tile buffer (in pixels)] \n";
 
-std::ostream& cout() {
-    time_t time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-    std::tm ltime;
-    localtime_s(&ltime, &time);
-    return std::cout << "[" << std::put_time(&ltime, "%d.%m.%Y %H:%M:%S") << "]  ";
+bool strEqual(const char* s1, const char* s2){
+    return std::strncmp(s1, s2, MAX_STR_SIZE) == 0;
+}
+
+uint strToUint(const char* str){
+    return std::strtoul(str, NULL, 10);
 }
 
 int main(int argc, char* argv[]){
-    //char* inputFilename  = nullptr;
-    //char* outputFilename = nullptr;
-    uint rayPerPoint     = 256;
-    uint tileSize        = 1000;
-    float pixelSize      = 0.1;
+    const char* inputFilename  = nullptr;
+    const char* outputFilename = "output.tif";
+    uint  rayPerPoint          = 256;
+    uint  tileSize             = 1000;
+    uint  tileBuffer           = tileSize/3;
+    bool  printInfos           = false;
 
-    /*char opt;
-    while ( (opt=getopt(argc, argv, "i:o:r:t:p:")) != -1) {
-        switch (opt) {
-            case 'i':
-                inputFilename = optarg;
-                break;
-            case 'o':
-                outputFilename = optarg;
-                break;
-            case 'r':
-                rayPerPoint = std::stoul(optarg);
-                break;
-            case 't':
-                tileSize = std::stoul(optarg);
-                break;
-            case 'p':
-                pixelSize = std::stof(optarg);
-                break;
-            default:
-                std::cout << USAGE;
-                exit(EXIT_FAILURE);
+    for(uint i=1; i<argc; i++){
+        if(strEqual(argv[i], "-i")){
+            inputFilename = argv[++i];
+        }else if(strEqual(argv[i], "-o")){
+            outputFilename = argv[++i];
+        }else if(strEqual(argv[i], "-r")){
+            rayPerPoint = strToUint(argv[++i]);
+        }else if(strEqual(argv[i], "-t")){
+            tileSize = strToUint(argv[++i]);
+        }else if(strEqual(argv[i], "-b")){
+            tileBuffer = strToUint(argv[++i]);
+        }else if(strEqual(argv[i], "--info")){
+            printInfos = true;
+        }else{
+            cout() << "Error : Invalid argument : " << argv[i] << '\n' << USAGE;
+            exit(EXIT_FAILURE);
         }
-    }*/
-    const char* inputFilename = "./input.tif"; 
-    const char* outputFilename = "./output.tif"; 
-
-    if(inputFilename == nullptr || outputFilename == nullptr || pixelSize <= 0){
-        std::cout << USAGE;
-        exit(EXIT_FAILURE);
     }
 
-    // TODO put these are parameters
-    const bool PRINT_INFOS = true;
-    const int TILE_BORDER = tileSize/3;
+    if(inputFilename == nullptr){
+        cout() << "Error : Input file required\n" << USAGE;
+        exit(EXIT_FAILURE);
+    }
 
     Raster rasterIn  = Raster(inputFilename);
     Raster rasterOut = Raster(outputFilename, &rasterIn);
 
-    if(PRINT_INFOS){
+    if(printInfos){
         rasterIn.printInfos();
         printDevicesInfos();     
     }
 
+    const float pixelSize = rasterIn.getPixelSize();
     const uint nbTiles = std::ceil((float)rasterIn.getHeight()/tileSize) * std::ceil((float)rasterIn.getWidth()/tileSize);
 
     uint nbTileProcessed = 0;
@@ -73,15 +64,14 @@ int main(int argc, char* argv[]){
         for(int x=0; x<rasterIn.getWidth(); x+=tileSize){
             const uint width  = std::min(tileSize, rasterIn.getWidth()-x);
             const uint height = std::min(tileSize, rasterIn.getHeight()-y);
-
-            const uint xMin = std::max(0, x-TILE_BORDER);
-            const uint yMin = std::max(0, y-TILE_BORDER);
-            const uint xMax = std::min(rasterIn.getWidth(), x+width+TILE_BORDER);
-            const uint yMax = std::min(rasterIn.getHeight(), y+height+TILE_BORDER);
+            const uint xMin   = std::max(0, x-(int)tileBuffer);
+            const uint yMin   = std::max(0, y-(int)tileBuffer);
+            const uint xMax   = std::min(rasterIn.getWidth(), x+width+tileBuffer);
+            const uint yMax   = std::min(rasterIn.getHeight(),y+height+tileBuffer);
             const uint widthBorder  = xMax - xMin;
             const uint heightBorder = yMax - yMin;
 
-            cout() << "Processing tile " << nbTileProcessed+1 << "/" << nbTiles << " (" <<  100*nbTileProcessed/nbTiles << "%)...\n";
+            cout() << "Processing tile " << nbTileProcessed+1<<"/"<<nbTiles << " ("<<100*nbTileProcessed/nbTiles<<"%)...\n";
 
             Array2D<float> data(widthBorder, heightBorder);
             rasterIn.readData(data.begin(), xMin, yMin, widthBorder, heightBorder);
@@ -96,8 +86,7 @@ int main(int argc, char* argv[]){
 
             cout() << "> Writing result...\n";
             Array2D<float> dataCropped(width, height);
-            uint i=0;
-            uint j=0;
+            uint i=0, j=0;
             for(uint curY=yMin; curY < yMax; curY++){
                 for(uint curX=xMin; curX < xMax; curX++){
                     if(curY >= y && curX >= x && curY < y+height && curX < x+width){

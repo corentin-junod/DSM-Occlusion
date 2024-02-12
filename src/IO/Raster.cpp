@@ -1,5 +1,7 @@
 #include "Raster.h"
 
+#include <iostream>
+
 Raster::Raster(const char* const filename, const Raster* const copyFrom) {
     GDALAllRegister();
     if(copyFrom == nullptr){
@@ -20,6 +22,12 @@ Raster::~Raster() {
     dataBand->FlushCache();
     dataset->FlushCache(true);
     GDALClose((GDALDatasetH)dataset);
+}
+
+float Raster::getPixelSize() const {
+    double geoTransform[6];
+    dataset->GetGeoTransform(geoTransform);
+    return geoTransform[1];
 }
 
 void Raster::readData(float* data, const uint x, const uint y, const uint width, const uint height) const {
@@ -46,12 +54,17 @@ void Raster::printInfos(){
         GDALComputeRasterMinMax(dataBand, true, minMax);
     }
 
-    std::cout<< "Driver used : " << dataset->GetDriverName() << '\n'
-             << "Number of bands : " << dataset->GetRasterCount() << '\n'
-             << "Tiles of " << tileXSize << "x" << tileYSize << '\n'
-             << "Type=" << GDALGetDataTypeName(dataBand->GetRasterDataType()) << '\n'
-             << "ColorInterp="<< GDALGetColorInterpretationName(dataBand->GetColorInterpretation()) << '\n'
-             << "Min : "<< minMax[0] << " Max : " << minMax[1] << '\n'
-             << "Number of overviews : " << dataBand->GetOverviewCount() << '\n';
-             //<< "Number of color in table entry : " << dataBand->GetColorTable()->GetColorEntryCount() << '\n';
+    std::cout
+        << "***** GDAL Driver information *****"
+        << "\nDriver used : " << dataset->GetDriverName()
+        << "\nNumber of bands : " << dataset->GetRasterCount()
+        << "\nTiles of " << tileXSize << "x" << tileYSize
+        << "\nType=" << GDALGetDataTypeName(dataBand->GetRasterDataType())
+        << "\nColorInterp="<< GDALGetColorInterpretationName(dataBand->GetColorInterpretation())
+        << "\nMin : "<< minMax[0] << " Max : " << minMax[1]
+        << "\nNumber of overviews : " << dataBand->GetOverviewCount()
+        << "\nScale : " << dataBand->GetScale()
+        << "\nPixel size (X axis) : " << getPixelSize()
+        << "\n***********************************\n";
+      //<< "Number of color in table entry : " << dataBand->GetColorTable()->GetColorEntryCount() << '\n';
 }

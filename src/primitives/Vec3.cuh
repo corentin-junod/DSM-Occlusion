@@ -2,7 +2,6 @@
 
 #include "../utils/definitions.cuh"
 #include <iostream>
-
 #include <cuda_runtime.h>
 
 template<typename T>
@@ -11,6 +10,10 @@ class Vec3{
 public:
     __host__ __device__ Vec3(T x=0, T y=0, T z=0) : x(x), y(y), z(z){};
 
+    __host__ __device__ T getNormSquared() const { return x*x + y*y + z*z; }
+
+    __host__ __device__ T dot(const Vec3<T>& other) const { return x*other.x + y*other.y + z*other.z; }
+    
     __host__ __device__ void normalize() {
         const T norm = sqrtf(x*x + y*y + z*z);
         x /= norm;
@@ -18,23 +21,12 @@ public:
         z /= norm;
     }
 
-    __host__ __device__ T getNormSquared() const {
-        return x*x + y*y + z*z;
-    }
-
-    __host__ __device__ T dot(const Vec3<T>& other) const {
-        return x*other.x + y*other.y + z*other.z; 
-    }
-
     __device__ __forceinline__ 
-    float setRandomInHemisphereCosineGPU(const float nbSegments, const float nbSamples, const byte sampleId, const float rndPhi, const float rndTheta){
-        const float currentSampleSegment = floorf(sampleId* fdividef(nbSegments, nbSamples));
-        const float segmentSize = fdividef(TWO_PI, nbSegments);
-        const float phi = rndPhi * fdividef(TWO_PI,segmentSize) + segmentSize * currentSampleSegment;
+    float setRandomInHemisphereCosineGPU(const float rndPhi, const float rndTheta){
         const float theta = acosf(sqrtf(rndTheta));
         const float sinTheta = sinf(theta);
-        x = sinTheta*cosf(phi);
-        y = sinTheta*sinf(phi);
+        x = sinTheta*cosf(rndPhi);
+        y = sinTheta*sinf(rndPhi);
         z = cosf(theta);
         return PI; // pdf = cosTheta / PI, so cosTheta / pdf = PI
     }
@@ -71,7 +63,7 @@ public:
 };
 
 template<typename T>
-__host__ std::ostream& operator<<(std::ostream& os, const Vec3<T>& p) {
+std::ostream& operator<<(std::ostream& os, const Vec3<T>& p) {
     os << "Vec3("<<p.x<<","<<p.y<<","<<p.z<<")";
     return os;
 }

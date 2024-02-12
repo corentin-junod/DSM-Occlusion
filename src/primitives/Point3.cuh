@@ -26,7 +26,7 @@ public:
 };
 
 template<typename T>
-__host__ std::ostream& operator<<(std::ostream& os, const Point3<T>& p) {
+std::ostream& operator<<(std::ostream& os, const Point3<T>& p) {
     os << "Point3("<<p.x<<","<<p.y<<","<<p.z<<")";
     return os;
 }

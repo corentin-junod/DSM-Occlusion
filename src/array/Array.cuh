@@ -9,7 +9,7 @@ public:
         m_data = allocArray ? (T*)malloc(sizeof(T)*width*height) : nullptr; // TODO check for malloc errors
     }
 
-    __host__ __device__ ~Array2D(){if(m_data != nullptr)free(m_data);}
+    __host__ __device__ ~Array2D(){ if(m_data!=nullptr) free(m_data); }
 
     __host__ __device__ uint size()   const {return m_width*m_height;}
     __host__ __device__ uint width()  const {return m_width;}
