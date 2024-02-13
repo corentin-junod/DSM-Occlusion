@@ -16,10 +16,10 @@ uint strToUint(const char* str){
     return std::strtoul(str, NULL, 10);
 }
 
-int main(uint argc, char* argv[]){
+int main(int argc, char* argv[]){
     const char* inputFilename  = nullptr;
     const char* outputFilename = "output.tif";
-    uint  rayPerPoint          = 128;
+    uint  rayPerPoint          = 256;
     uint  tileSize             = 900;
     uint  tileBuffer           = tileSize/3;
     bool  printInfos           = false;

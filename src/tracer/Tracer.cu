@@ -9,7 +9,7 @@
 std::default_random_engine genEngine;
 std::uniform_real_distribution<> uniform0_1 = std::uniform_real_distribution<>(0.001, 1); // Not starting at zero to avoid dividing by zero
 
-constexpr byte NB_STRATIFIED_DIRS = 64; // TODO properly compute this number so that the render is not biased
+constexpr uint NB_SEGMENTS_DIR = 16;
 constexpr uint SEED = 1423; // For reproducible runs, can be any value
 constexpr uint BLOCK_DIM_SIZE = 8;
 
@@ -20,15 +20,16 @@ void renderGPU(const Array2D<float>& data, const Array2D<Point3<float>>& points,
     if(x>=data.width() || y>=data.height()) return;
     const uint index = y*data.width() + x;
 
+    curandState localRndState = rndState[index];
+
     extern __shared__ float sharedMem[];
     //BVHNode* const cache = (BVHNode*) &sharedMem[threads.x*threads.y];
 
-    for (int i = 0; i<raysPerPoint / (BLOCK_DIM_SIZE * BLOCK_DIM_SIZE); i++) {
+    /*for (uint i=0; i<raysPerPoint / (BLOCK_DIM_SIZE*BLOCK_DIM_SIZE); i++) {
         const int curIndex = (i+1)*(threadIdx.x + threadIdx.y * BLOCK_DIM_SIZE);
-        sharedMem[curIndex] = (float)curIndex/raysPerPoint;
-    }
+        sharedMem[curIndex] = curand_uniform(&localRndState);
+    }*/
 
-    curandState localRndState = rndState[index];
     curand_init(SEED, index, 0, &localRndState);
 
     const Point3<float> origin(points[index].x, points[index].y, points[index].z);
@@ -36,19 +37,15 @@ void renderGPU(const Array2D<float>& data, const Array2D<Point3<float>>& points,
     
     __syncthreads(); // Wait for each thread to initialize its part of the shared memory
 
-    const float segmentSize = fdividef(TWO_PI, NB_STRATIFIED_DIRS);
-    const float dirPerRay = fdividef(NB_STRATIFIED_DIRS, raysPerPoint);
+    const int raysPerDir = raysPerPoint / NB_SEGMENTS_DIR;
 
     float result = 0;
     for(uint i=0; i<raysPerPoint; i++){
-        //const float rndPhi = fminf( sharedMem[i] + 0.005*curand_uniform(&localRndState), 1);
 
-        const float rndPhi = curand_uniform(&localRndState) * segmentSize + segmentSize * floorf(i * dirPerRay);
+        const float rndTheta = ((i%raysPerDir) + curand_uniform(&localRndState)) / (raysPerDir-1);
+        const float rndPhi   = ((i/raysPerDir) + curand_uniform(&localRndState)) / NB_SEGMENTS_DIR;
 
-        // const float rndTheta = sharedMem[i+1];
-        const float rndTheta = curand_uniform(&localRndState);
-
-        const float cosThetaOverPdf = direction.setRandomInHemisphereCosineGPU(rndPhi, rndTheta);
+        const float cosThetaOverPdf = direction.setRandomInHemisphereCosineGPU(TWO_PI*fminf(rndPhi,1), fminf(rndTheta,1) );
         const Vec3<float> invDir(fdividef(1,direction.x), fdividef(1,direction.y), fdividef(1,direction.z));
         result += cosThetaOverPdf*bvh.getLighting(origin, invDir);
     }
