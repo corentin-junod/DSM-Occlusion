@@ -17,11 +17,11 @@ public:
 
     template<typename U> __host__ friend std::ostream& operator<<(std::ostream& os, const Bbox<U>& bbox);
 
-    __host__ __device__ void setEnglobing(Point3<T>** points, int size, T margin){
+    __host__ __device__ void setEnglobing(Point3<T>** points, uint size, T margin){
         minX = maxX = points[0]->x;
         minY = maxY = points[0]->y;
         /*minZ = */maxZ = points[0]->z;
-        for(int i=0; i<size; i++){
+        for(uint i=0; i<size; i++){
             const Point3<T>* point = points[i];
             if(point->x < minX) minX = point->x;
             if(point->x > maxX) maxX = point->x;
@@ -48,7 +48,7 @@ public:
     }
 
     __host__ __device__ const Point3<T> getCenter() const {
-        return Point3<T>( (maxX+minX)/2.0, (maxY+minY)/2.0, (maxZ/*+minZ*/)/2.0 );
+        return Point3<T>( (maxX+minX)/2, (maxY+minY)/2, (maxZ/*+minZ*/)/2 );
     }
 
     __device__ bool intersects(const Vec3<float>& invRayDir, const Point3<float>& rayOrigin) const {

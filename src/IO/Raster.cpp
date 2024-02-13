@@ -17,6 +17,7 @@ Raster::Raster(const char* const filename, const Raster* const copyFrom) {
 Raster::~Raster() {
     double min=0, max=0, mean=0, dev=0;
     dataset->ClearStatistics();
+    dataBand->SetNoDataValue(-1);
     dataBand->ComputeStatistics(false, &min, &max, &mean, &dev, NULL, NULL);
     dataBand->SetStatistics(min, max, mean, dev);
     dataBand->FlushCache();

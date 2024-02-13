@@ -24,6 +24,7 @@
     <ClInclude Include="..\src\primitives\Vec3.cuh" />
     <ClInclude Include="..\src\tracer\Tracer.cuh" />
     <ClInclude Include="..\src\utils\definitions.cuh" />
+    <ClInclude Include="..\src\utils\logging.h" />
     <ClInclude Include="..\src\utils\utils.cuh" />
   </ItemGroup>
   <ItemGroup>

@@ -16,11 +16,11 @@ uint strToUint(const char* str){
     return std::strtoul(str, NULL, 10);
 }
 
-int main(int argc, char* argv[]){
+int main(uint argc, char* argv[]){
     const char* inputFilename  = nullptr;
     const char* outputFilename = "output.tif";
-    uint  rayPerPoint          = 256;
-    uint  tileSize             = 1000;
+    uint  rayPerPoint          = 128;
+    uint  tileSize             = 900;
     uint  tileBuffer           = tileSize/3;
     bool  printInfos           = false;
 
@@ -48,6 +48,7 @@ int main(int argc, char* argv[]){
         exit(EXIT_FAILURE);
     }
 
+    cout() << "Creating output file ...\n";
     Raster rasterIn  = Raster(inputFilename);
     Raster rasterOut = Raster(outputFilename, &rasterIn);
 
@@ -57,7 +58,7 @@ int main(int argc, char* argv[]){
     }
 
     const float pixelSize = rasterIn.getPixelSize();
-    const uint nbTiles = std::ceil((float)rasterIn.getHeight()/tileSize) * std::ceil((float)rasterIn.getWidth()/tileSize);
+    const uint nbTiles = (uint)std::ceil((float)rasterIn.getHeight()/tileSize) * (uint)std::ceil((float)rasterIn.getWidth()/tileSize);
 
     uint nbTileProcessed = 0;
     for(int y=0; y<rasterIn.getHeight(); y+=tileSize){

@@ -180,7 +180,7 @@ public:
 
 
     void build(Array2D<Point3<float>*>& points) {
-        const float margin = pixelSize/2.0;
+        const float margin = pixelSize/2;
 
         std::vector<uint> stack = std::vector<uint>();
 
@@ -198,7 +198,7 @@ public:
             const uint curSize = curSegment->tail-curSegment->head;
             
             if(curSize < ELEMENTS_MAX_SIZE){
-                for(int i=0; i<curSize; i++){
+                for(uint i=0; i<curSize; i++){
                     elementsMemory[elementsCounter+i] = *(curSegment->head[i]);
                 }
                 curSegment->node->elementsIndex = elementsCounter;
@@ -206,7 +206,6 @@ public:
                 elementsCounter += curSize;
 
             }else{
-
                 Bbox<float> globalBbox = Bbox<float>();
                 globalBbox.setEnglobing(curSegment->head, curSize, margin);
                 const uint splitIndex = split(curSegment->head, curSize, globalBbox);
@@ -216,7 +215,6 @@ public:
                 stack.push_back(nbSegments);
                 stackMemory[nbSegments++] = ArraySegment{curSegment, middle, curSegment->tail};
                 
-
                 curSegment->node->bboxLeft.setEnglobing(curSegment->head, middle-curSegment->head, margin);
                 stack.push_back(nbSegments);
                 stackMemory[nbSegments++] = ArraySegment{curSegment, curSegment->head, middle};
@@ -304,14 +302,14 @@ private:
 
     __host__ __device__ bool intersectSphere(const Point3<float>& top, const Ray<float>& ray, const float radius) const {
         ray.getDirection().normalize();
-        const Point3<float> center = Point3<float>(top.x, top.y, top.z-pixelSize/2.0);
+        const Point3<float> center = Point3<float>(top.x, top.y, top.z-pixelSize/2);
         const float radius_squared = radius*radius;
         const Vec3<float> d_co = ray.getOrigin() - center;
         const float d_co_norm_sqr = d_co.getNormSquared();
         if(d_co_norm_sqr <= radius_squared) return false;
         const float tmp = ray.getDirection().dot(d_co);
         const float delta = tmp*tmp - (d_co_norm_sqr - radius_squared);
-        const float t = -1.0*(tmp+sqrt(delta));
+        const float t = -tmp-sqrt(delta);
         return delta >= 0 && t > 0;
     }
 
@@ -324,7 +322,7 @@ private:
         int nbLeft  = 0;
         int nbRight = 0;
 
-        for(int i=0; i<size; i++){
+        for(uint i=0; i<size; i++){
             Point3<float>* const point = points[i];
             if(dx>=dy /*&& dx>=dz*/){
                 if(point->x < center.x){
@@ -349,7 +347,7 @@ private:
                 }
             }*/
         }
-        for(int i=0; i<size; i++){
+        for(uint i=0; i<size; i++){
             points[i] = workingBuffer[i];
         }
         return nbLeft;

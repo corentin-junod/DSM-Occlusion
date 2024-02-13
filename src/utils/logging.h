@@ -1,12 +1,14 @@
 #include <chrono>
 #include <iostream>
+#include <iomanip>
 
 const char* const DATE_FORMAT = "%d.%m.%Y %H:%M:%S";
 
 inline std::ostream& cout() {
 #ifdef _WIN32
     std::tm ltime;
-    localtime_s(&ltime, &std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()));
+    const time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+    localtime_s(&ltime, &now);
     return std::cout << "[" << std::put_time(&ltime, DATE_FORMAT) << "]  ";
 #else
     time_t currentTime = time(nullptr);
