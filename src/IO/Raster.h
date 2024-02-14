@@ -12,6 +12,7 @@ public:
     uint getHeight() const { return height; }
     uint getWidth()  const { return width;  }
     float getPixelSize() const;
+    float getNoDataValue() const;
     void printInfos();
     void readData(float* data,  const uint x, const uint y, const uint width, const uint height) const;
     void writeData(float* data, const uint x, const uint y, const uint width, const uint height) const;

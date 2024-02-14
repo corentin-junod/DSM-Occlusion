@@ -19,8 +19,8 @@ uint strToUint(const char* str){
 int main(int argc, char* argv[]){
     const char* inputFilename  = nullptr;
     const char* outputFilename = "output.tif";
-    uint  rayPerPoint          = 256;
-    uint  tileSize             = 900;
+    uint  rayPerPoint          = 128;
+    uint  tileSize             = 800;
     uint  tileBuffer           = tileSize/3;
     bool  printInfos           = false;
 
@@ -57,6 +57,7 @@ int main(int argc, char* argv[]){
         printDevicesInfos();     
     }
 
+    const float noDataValue = rasterIn.getNoDataValue();
     const float pixelSize = rasterIn.getPixelSize();
     const uint nbTiles = (uint)std::ceil((float)rasterIn.getHeight()/tileSize) * (uint)std::ceil((float)rasterIn.getWidth()/tileSize);
 
@@ -74,30 +75,46 @@ int main(int argc, char* argv[]){
 
             cout() << "Processing tile " << nbTileProcessed+1<<"/"<<nbTiles << " ("<<100*nbTileProcessed/nbTiles<<"%)...\n";
 
-            Array2D<float> data(widthBorder, heightBorder);
-            rasterIn.readData(data.begin(), xMin, yMin, widthBorder, heightBorder);
+            Array2D<float> dataIn(widthBorder, heightBorder);
+            Array2D<float> dataOut(widthBorder, heightBorder);
 
-            Tracer tracer = Tracer(data, pixelSize);
+            rasterIn.readData(dataIn.begin(), xMin, yMin, widthBorder, heightBorder);
 
-            cout() << "> Building BVH...\n";
-            tracer.init(false);
+            bool hasData = false;
 
-            cout() << "> Start tracing...\n";
-            tracer.trace(true, rayPerPoint);
-
-            cout() << "> Writing result...\n";
-            Array2D<float> dataCropped(width, height);
-            uint i=0, j=0;
-            for(uint curY=yMin; curY < yMax; curY++){
-                for(uint curX=xMin; curX < xMax; curX++){
-                    if(curY >= y && curX >= x && curY < y+height && curX < x+width){
-                        dataCropped[i++] = data[j];
-                    }
-                    j++;
+            for(uint i=0; i<dataIn.size(); i++){
+                if(dataIn[i] != noDataValue){
+                    hasData = true;
                 }
+                dataOut[i] = dataIn[i];
             }
 
-            rasterOut.writeData(dataCropped.begin(), x, y, width, height);
+            if(hasData){
+                Tracer tracer = Tracer(dataOut, pixelSize);
+
+                cout() << "> Building BVH...\n";
+                tracer.init(false);
+
+                cout() << "> Start tracing...\n";
+                tracer.trace(true, rayPerPoint);
+
+                cout() << "> Writing result...\n";
+                Array2D<float> dataCropped(width, height);
+                uint i=0, j=0;
+                for(uint curY=yMin; curY < yMax; curY++){
+                    for(uint curX=xMin; curX < xMax; curX++){
+                        if(curY >= y && curX >= x && curY < y+height && curX < x+width){
+                            dataCropped[i++] = (dataIn[j] == noDataValue ? noDataValue : dataOut[j]);
+                        }
+                        j++;
+                    }
+                }
+
+                rasterOut.writeData(dataCropped.begin(), x, y, width, height);
+            }else{
+                cout() << "> Tile skipped because it had no data \n";
+            }
+         
             nbTileProcessed++;
         }
     }

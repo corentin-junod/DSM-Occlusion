@@ -17,7 +17,6 @@ Raster::Raster(const char* const filename, const Raster* const copyFrom) {
 Raster::~Raster() {
     double min=0, max=0, mean=0, dev=0;
     dataset->ClearStatistics();
-    dataBand->SetNoDataValue(-1);
     dataBand->ComputeStatistics(false, &min, &max, &mean, &dev, NULL, NULL);
     dataBand->SetStatistics(min, max, mean, dev);
     dataBand->FlushCache();
@@ -29,6 +28,10 @@ float Raster::getPixelSize() const {
     double geoTransform[6];
     dataset->GetGeoTransform(geoTransform);
     return geoTransform[1];
+}
+
+float Raster::getNoDataValue() const {
+    return dataBand->GetNoDataValue();
 }
 
 void Raster::readData(float* data, const uint x, const uint y, const uint width, const uint height) const {

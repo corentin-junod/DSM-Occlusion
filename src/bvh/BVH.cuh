@@ -182,6 +182,7 @@ public:
     void build(Array2D<Point3<float>*>& points) {
         const float margin = pixelSize/2;
 
+        Bbox<float> globalBbox = Bbox<float>();
         std::vector<uint> stack = std::vector<uint>();
 
         uint elementsCounter = 0;
@@ -195,7 +196,7 @@ public:
             stack.pop_back();
             curSegment->node = new (&bvhNodes[nbNodes++]) BVHNode();
 
-            const uint curSize = curSegment->tail-curSegment->head;
+            const uint curSize = curSegment->tail - curSegment->head;
             
             if(curSize < ELEMENTS_MAX_SIZE){
                 for(uint i=0; i<curSize; i++){
@@ -206,7 +207,6 @@ public:
                 elementsCounter += curSize;
 
             }else{
-                Bbox<float> globalBbox = Bbox<float>();
                 globalBbox.setEnglobing(curSegment->head, curSize, margin);
                 const uint splitIndex = split(curSegment->head, curSize, globalBbox);
                 Point3<float>** middle = &(curSegment->head[splitIndex]);
@@ -313,7 +313,7 @@ private:
         return delta >= 0 && t > 0;
     }
 
-    __host__ __device__ int split(Point3<float>** points, uint size, const Bbox<float>& bbox) const {
+    __host__ __device__ int split(Point3<float>** points, const uint size, const Bbox<float>& bbox) const {
         const float dx = bbox.getEdgeLength('X');
         const float dy = bbox.getEdgeLength('Y');
         //const float dz = bbox->getEdgeLength('Z');

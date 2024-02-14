@@ -17,12 +17,12 @@ public:
 
     template<typename U> __host__ friend std::ostream& operator<<(std::ostream& os, const Bbox<U>& bbox);
 
-    __host__ __device__ void setEnglobing(Point3<T>** points, uint size, T margin){
+    __host__ __device__ void setEnglobing(Point3<T>** points, const uint size, const T margin){
         minX = maxX = points[0]->x;
         minY = maxY = points[0]->y;
         /*minZ = */maxZ = points[0]->z;
         for(uint i=0; i<size; i++){
-            const Point3<T>* point = points[i];
+            const Point3<T>* const point = points[i];
             if(point->x < minX) minX = point->x;
             if(point->x > maxX) maxX = point->x;
             if(point->y < minY) minY = point->y;
