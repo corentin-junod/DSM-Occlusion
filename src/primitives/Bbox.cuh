@@ -54,36 +54,29 @@ public:
     __device__ bool intersects(const Vec3<float>& invRayDir, const Point3<float>& rayOrigin) const {
         float min, max;
 
-        const float tNearX = (minX - rayOrigin.x) * invRayDir.x;
-        const float tFarX  = (maxX - rayOrigin.x) * invRayDir.x;
+        const float tX1 = (minX - rayOrigin.x) * invRayDir.x;
+        const float tX2  = (maxX - rayOrigin.x) * invRayDir.x;
 
-        min = fminf(tNearX, tFarX);
-        max = fmaxf(tNearX, tFarX);
+        min = fminf(tX1, tX2);
+        max = fmaxf(tX1, tX2);
         
-        const float tNearY = (minY - rayOrigin.y) * invRayDir.y;
-        const float tFarY  = (maxY - rayOrigin.y) * invRayDir.y;
+        const float tY1 = (minY - rayOrigin.y) * invRayDir.y;
+        const float tY2  = (maxY - rayOrigin.y) * invRayDir.y;
 
-        /*min = (tNearY > tFarY)*fmaxf(tFarY, min)+ (tNearY <= tFarY)*fmaxf(tNearY, min);
-        max = (tNearY > tFarY)*fminf(tNearY, max)+ (tNearY <= tFarY)*fminf(tFarY, max);*/
+        const float tNearY = fminf(tY1, tY2);
+        const float tFarY  = fmaxf(tY1, tY2);
 
-        if(tNearY > tFarY){
-            min = fmaxf(tFarY, min);
-            max = fminf(tNearY, max);
-        }else{
-            min = fmaxf(tNearY, min);
-            max = fminf(tFarY, max);
-        }
+        min = fmaxf(tNearY, min);
+        max = fminf(tFarY, max);
 
-        const float tNearZ = (/*minZ*/ - rayOrigin.z) * invRayDir.z;
-        const float tFarZ  = (maxZ - rayOrigin.z) * invRayDir.z;
+        const float tZ1 = (/*minZ*/ - rayOrigin.z) * invRayDir.z;
+        const float tZ2  = (maxZ - rayOrigin.z) * invRayDir.z;
 
-        if(tNearZ > tFarZ){
-            min = fmaxf(tFarZ, min);
-            max = fminf(tNearZ, max);
-        }else{
-            min = fmaxf(tNearZ, min);
-            max = fminf(tFarZ, max);
-        }
+        const float tNearZ = fminf(tZ1, tZ2);
+        const float tFarZ  = fmaxf(tZ1, tZ2);
+
+        min = fmaxf(tNearZ, min);
+        max = fminf(tFarZ, max);
 
         return min < max && max > 0;
     }

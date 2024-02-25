@@ -24,13 +24,6 @@ void renderGPU(const Array2D<float>& data, const Array2D<Point3<float>>& points,
     curandState localRndState = rndState[index];
     curand_init(SEED, index, 0, &localRndState);
 
-    /*extern __shared__ float sharedMem[];
-    BVHNode* const cache = (BVHNode*) sharedMem;*/
-
-    /*for(uint i=0; i<64; i++){
-        cache[i] = bvh.cacheRoot()[i];
-    }*/
-
     const Point3<float> origin(points[index].x, points[index].y, points[index].z);
     Vec3<float> direction = Vec3<float>(0.0, 0.0, 0.0);
     
@@ -45,8 +38,7 @@ void renderGPU(const Array2D<float>& data, const Array2D<Point3<float>>& points,
         const float rndPhi   = fdividef((i/raysPerDir) + curand_uniform(&localRndState), NB_SEGMENTS_DIR);
 
         const float cosThetaOverPdf = direction.setRandomInHemisphereCosineGPU(TWO_PI*fminf(rndPhi,1), fminf(rndTheta,1) );
-        const Vec3<float> invDir(fdividef(1,direction.x), fdividef(1,direction.y), fdividef(1,direction.z));
-        result += cosThetaOverPdf*bvh.getLighting(origin, invDir);
+        result += cosThetaOverPdf*bvh.getLighting(origin, direction);
         __syncthreads();
     }
     data[index] = ONE_OVER_PI*result/raysPerPoint; // Diffuse BSDF
@@ -89,8 +81,7 @@ void Tracer::trace(const bool useGPU, const uint raysPerPoint){
         Array2D<Point3<float>>* pointsGPU = points.toGPU();
         BVH* bvhGPU = bvh.toGPU();
         Array2D<float>* dataGPU = data.toGPU();
-        //const uint sharedMem = 64*sizeof(BVHNode); 
-        renderGPU<<<gridDims, blockDims/*, sharedMem*/>>>(*dataGPU, *pointsGPU, *bvhGPU, raysPerPoint, randomState);
+        renderGPU<<<gridDims, blockDims>>>(*dataGPU, *pointsGPU, *bvhGPU, raysPerPoint, randomState);
         syncGPU();
         data.fromGPU(dataGPU);
         bvh.fromGPU(bvhGPU);
