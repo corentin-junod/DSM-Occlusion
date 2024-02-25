@@ -10,7 +10,7 @@
 #include <ostream>
 #include <vector>
 
-constexpr byte ELEMENTS_MAX_SIZE = 4;
+constexpr byte ELEMENTS_MAX_SIZE = 2;
 
 //constexpr uint CACHE_SIZE = 64;
 
@@ -21,6 +21,7 @@ struct __align__(16) BVHNode{
     uint sizeLeft      = 0;
     uint sizeRight     = 0;
     byte nbElements    = 0;
+    //bool isLeafe = false;
 
     /*byte cacheIdLeft  = 255;
     byte cacheIdRight = 255;*/
@@ -40,7 +41,7 @@ public:
         bvhNodes       = (BVHNode*)        calloc(2*nbPixels, sizeof(BVHNode));
         //cacheNodes     = (BVHNode*)        calloc(CACHE_SIZE, sizeof(BVHNode));
         elementsMemory = (Point3<float>*)  calloc(nbPixels,   sizeof(Point3<float>));
-        stackMemory    = (ArraySegment*)   calloc(nbPixels,   sizeof(ArraySegment));
+        stackMemory    = (ArraySegment*)   calloc(2*nbPixels,   sizeof(ArraySegment));
         workingBuffer  = (Point3<float>**) calloc(nbPixels,   sizeof(Point3<float>*));
     }
 
@@ -73,8 +74,8 @@ public:
 
         ArraySegment* stackMemoryGPU = nullptr;
         if(stackMemory != nullptr){
-            stackMemoryGPU = (ArraySegment*) allocGPU(sizeof(ArraySegment), nbPixels);
-            memCpuToGpu(stackMemoryGPU, stackMemory, nbPixels*sizeof(ArraySegment));
+            stackMemoryGPU = (ArraySegment*) allocGPU(sizeof(ArraySegment), 2*nbPixels);
+            memCpuToGpu(stackMemoryGPU, stackMemory, 2*nbPixels*sizeof(ArraySegment));
         }
 
         Point3<float>** workingBufferGPU = nullptr;
@@ -111,7 +112,7 @@ public:
         freeGPU(tmp.elementsMemory);
 
         if(stackMemory != nullptr){
-            memGpuToCpu(stackMemory, tmp.stackMemory, nbPixels*sizeof(ArraySegment));
+            memGpuToCpu(stackMemory, tmp.stackMemory, 2*nbPixels*sizeof(ArraySegment));
             freeGPU(tmp.stackMemory);
         }
         if(workingBuffer != nullptr){
@@ -147,6 +148,24 @@ public:
         }
         return 1;
     }
+
+    /*__device__ float getLighting(const Point3<float>& origin, const Vec3<float>& invDir) const {
+        uint nodeIndex = 0;
+
+        while(nodeIndex < nbNodes){
+            const BVHNode node = bvhNodes[nodeIndex];
+
+            const bool intersectRight = node.bboxRight.intersects(invDir, origin);
+            const bool intersectLeft  = node.bboxLeft.intersects(invDir, origin);
+            
+            nodeIndex += intersectLeft + 
+                (!intersectLeft && intersectRight)*(node.sizeLeft+1) + 
+                (!intersectLeft && !intersectRight)*(node.sizeRight+node.sizeLeft+1);
+
+            if(node.isLeafe) return 0;
+        }
+        return 1;
+    }*/
 
     /*__device__ float getLighting2(const Point3<float>& origin, const Vec3<float>& invDir, const BVHNode* const cache) const {
         uint nodeIndex = 0;
@@ -206,12 +225,13 @@ public:
 
             const uint curSize = curSegment->tail - curSegment->head;
             
-            if(curSize < ELEMENTS_MAX_SIZE){
+            if(curSize <= ELEMENTS_MAX_SIZE){
                 for(uint i=0; i<curSize; i++){
                     elementsMemory[elementsCounter+i] = *(curSegment->head[i]);
                 }
                 curSegment->node->elementsIndex = elementsCounter;
                 curSegment->node->nbElements = curSize;
+                //curSegment->node->isLeafe = true;
                 elementsCounter += curSize;
 
             }else{

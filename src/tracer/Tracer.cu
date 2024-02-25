@@ -47,6 +47,7 @@ void renderGPU(const Array2D<float>& data, const Array2D<Point3<float>>& points,
         const float cosThetaOverPdf = direction.setRandomInHemisphereCosineGPU(TWO_PI*fminf(rndPhi,1), fminf(rndTheta,1) );
         const Vec3<float> invDir(fdividef(1,direction.x), fdividef(1,direction.y), fdividef(1,direction.z));
         result += cosThetaOverPdf*bvh.getLighting(origin, invDir);
+        __syncthreads();
     }
     data[index] = ONE_OVER_PI*result/raysPerPoint; // Diffuse BSDF
 }
