@@ -4,6 +4,7 @@
 #include "../array/Array.cuh"
 
 #include "device_launch_parameters.h"
+#include <iostream>
 #include <random>
 
 std::default_random_engine genEngine;
@@ -21,16 +22,14 @@ void renderGPU(const Array2D<float>& data, const Array2D<Point3<float>>& points,
     const uint index = y*data.width() + x;
 
     curandState localRndState = rndState[index];
-
-    extern __shared__ float sharedMem[];
-    //BVHNode* const cache = (BVHNode*) &sharedMem[threads.x*threads.y];
-
-    /*for (uint i=0; i<raysPerPoint / (BLOCK_DIM_SIZE*BLOCK_DIM_SIZE); i++) {
-        const int curIndex = (i+1)*(threadIdx.x + threadIdx.y * BLOCK_DIM_SIZE);
-        sharedMem[curIndex] = curand_uniform(&localRndState);
-    }*/
-
     curand_init(SEED, index, 0, &localRndState);
+
+    /*extern __shared__ float sharedMem[];
+    BVHNode* const cache = (BVHNode*) sharedMem;*/
+
+    /*for(uint i=0; i<64; i++){
+        cache[i] = bvh.cacheRoot()[i];
+    }*/
 
     const Point3<float> origin(points[index].x, points[index].y, points[index].z);
     Vec3<float> direction = Vec3<float>(0.0, 0.0, 0.0);
@@ -89,8 +88,8 @@ void Tracer::trace(const bool useGPU, const uint raysPerPoint){
         Array2D<Point3<float>>* pointsGPU = points.toGPU();
         BVH* bvhGPU = bvh.toGPU();
         Array2D<float>* dataGPU = data.toGPU();
-        const uint sharedMem = (raysPerPoint+1)*sizeof(float);//+64*sizeof(BVHNode); 
-        renderGPU<<<gridDims, blockDims, sharedMem>>>(*dataGPU, *pointsGPU, *bvhGPU, raysPerPoint, randomState);
+        //const uint sharedMem = 64*sizeof(BVHNode); 
+        renderGPU<<<gridDims, blockDims/*, sharedMem*/>>>(*dataGPU, *pointsGPU, *bvhGPU, raysPerPoint, randomState);
         syncGPU();
         data.fromGPU(dataGPU);
         bvh.fromGPU(bvhGPU);

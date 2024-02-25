@@ -12,6 +12,8 @@
 
 constexpr byte ELEMENTS_MAX_SIZE = 4;
 
+//constexpr uint CACHE_SIZE = 64;
+
 struct __align__(16) BVHNode{
     Bbox<float> bboxLeft  = Bbox<float>();
     Bbox<float> bboxRight = Bbox<float>();
@@ -19,6 +21,7 @@ struct __align__(16) BVHNode{
     uint sizeLeft      = 0;
     uint sizeRight     = 0;
     byte nbElements    = 0;
+
     /*byte cacheIdLeft  = 255;
     byte cacheIdRight = 255;*/
 };
@@ -35,6 +38,7 @@ public:
     __host__ BVH(const uint nbPixels, const float pixelSize): 
     nbPixels(nbPixels), pixelSize(pixelSize) {
         bvhNodes       = (BVHNode*)        calloc(2*nbPixels, sizeof(BVHNode));
+        //cacheNodes     = (BVHNode*)        calloc(CACHE_SIZE, sizeof(BVHNode));
         elementsMemory = (Point3<float>*)  calloc(nbPixels,   sizeof(Point3<float>));
         stackMemory    = (ArraySegment*)   calloc(nbPixels,   sizeof(ArraySegment));
         workingBuffer  = (Point3<float>**) calloc(nbPixels,   sizeof(Point3<float>*));
@@ -50,17 +54,21 @@ public:
     __host__ void freeAllMemory() const {
         free(elementsMemory);
         free(bvhNodes);
+        //free(cacheNodes);
     }
 
     __host__ void printInfos() const {std::cout<<"BVH : \n   Nodes : "<<nbNodes<<"\n";}
     __host__ __device__ int size() const {return nbNodes;}
     __host__ __device__ BVHNode* root() const {return &bvhNodes[0];}
+    //__host__ __device__ BVHNode* cacheRoot() const {return &cacheNodes[0];}
 
     __host__ BVH* toGPU() const {
-        BVHNode* bvhNodesGPU = (BVHNode*) allocGPU(sizeof(BVHNode), 2*nbPixels);
+        BVHNode* bvhNodesGPU   = (BVHNode*) allocGPU(sizeof(BVHNode), 2*nbPixels);
+        //BVHNode* cacheNodesGPU = (BVHNode*) allocGPU(sizeof(BVHNode), CACHE_SIZE);
         Point3<float>* elementsMemoryGPU = (Point3<float>*) allocGPU(sizeof(Point3<float>), nbPixels);
 
         memCpuToGpu(bvhNodesGPU,       bvhNodes,       2*nbPixels*sizeof(BVHNode));
+        //memCpuToGpu(cacheNodesGPU,     cacheNodes,     CACHE_SIZE*sizeof(BVHNode));
         memCpuToGpu(elementsMemoryGPU, elementsMemory, nbPixels*sizeof(Point3<float>));
 
         ArraySegment* stackMemoryGPU = nullptr;
@@ -80,6 +88,7 @@ public:
         tmp.freeAllMemory();
         tmp.nbNodes        = nbNodes;
         tmp.bvhNodes       = bvhNodesGPU;
+        //tmp.cacheNodes     = cacheNodesGPU;
         tmp.elementsMemory = elementsMemoryGPU;
         tmp.stackMemory    = stackMemoryGPU;
         tmp.workingBuffer  = workingBufferGPU;
@@ -94,9 +103,11 @@ public:
         tmp.freeAllMemory();
         memGpuToCpu(&tmp,           replica,            sizeof(BVH));
         memGpuToCpu(bvhNodes,       tmp.bvhNodes,       2*nbPixels*sizeof(BVHNode));
+        //memGpuToCpu(cacheNodes,     tmp.cacheNodes,     CACHE_SIZE*sizeof(BVHNode));
         memGpuToCpu(elementsMemory, tmp.elementsMemory, nbPixels*sizeof(Point3<float>));
         
         freeGPU(tmp.bvhNodes);
+        //freeGPU(tmp.cacheNodes);
         freeGPU(tmp.elementsMemory);
 
         if(stackMemory != nullptr){
@@ -115,10 +126,9 @@ public:
 
     __device__ float getLighting(const Point3<float>& origin, const Vec3<float>& invDir) const {
         uint nodeIndex = 0;
-        const uint maxIndex = nbNodes;
         const float margin = pixelSize/2.0;
 
-        while(nodeIndex < maxIndex){
+        while(nodeIndex < nbNodes){
             const BVHNode node = bvhNodes[nodeIndex];
 
             for(byte i=0; i<node.nbElements; i++){
@@ -138,24 +148,16 @@ public:
         return 1;
     }
 
-    __device__ float getLighting2(const Point3<float>& origin, const Vec3<float>& invDir, BVHNode* const cache) const {
-        /*uint nodeIndex = 0;
-        const uint maxIndex = nbNodes;
-        const float margin = pixelSize/TWO;
+    /*__device__ float getLighting2(const Point3<float>& origin, const Vec3<float>& invDir, const BVHNode* const cache) const {
+        uint nodeIndex = 0;
+        const float margin = pixelSize/2.0;
 
         byte nextId = 0;
 
-        while(nodeIndex < maxIndex){
+        while(nodeIndex < nbNodes){
 
-            BVHNode node;
-            if(nextId < 64){
-                node = cache[nextId];
-                if(node.sizeLeft == 0){
-                    node = cache[nextId] = bvhNodes[nodeIndex];
-                }
-            }else{
-                node = bvhNodes[nodeIndex];
-            }
+            const BVHNode node = nextId < 64 ? cache[nextId] : bvhNodes[nodeIndex];
+
 
             for(byte i=0; i<node.nbElements; i++){
                 if(intersectBox(elementsMemory[node.elementsIndex+i], invDir, origin, margin)){
@@ -166,17 +168,23 @@ public:
 
             const bool intersectRight = node.bboxRight.intersects(invDir, origin);
             const bool intersectLeft  = node.bboxLeft.intersects(invDir, origin);
-            
-            nodeIndex += intersectLeft + 
-                (!intersectLeft && intersectRight)*(node.sizeLeft+1) + 
-                (!intersectLeft && !intersectRight)*(node.sizeRight+node.sizeLeft+1);
 
-            nextId = intersectLeft * node.cacheIdLeft + 
-                (!intersectLeft && intersectRight)*(node.cacheIdRight) + 
-                (!intersectLeft && !intersectRight)*255;
-        }*/
+            if(intersectLeft){
+                nodeIndex += 1;
+                nextId =  node.cacheIdLeft;
+            }else if(intersectRight){
+                nodeIndex += node.sizeLeft+1;
+                nextId = node.cacheIdRight;
+            }else{
+                nodeIndex += node.sizeRight+node.sizeLeft+1;
+                nextId = 255;
+                return 1;
+            }
+
+            if(nextId >= 64 ) return 0;
+        }
         return 1;
-    }
+    }*/
 
 
     void build(Array2D<Point3<float>*>& points) {
@@ -232,20 +240,29 @@ public:
         }
 
         /*const uint nbCachedNodes = 64;
-        int nodesIdFIFO[2*nbCachedNodes];
-        int headFIFO = 0;
-        int tailFIFO = 0;
+        uint nodesIdFIFO[2*nbCachedNodes];
+        uint indexFIFO[2*nbCachedNodes];
+        uint headFIFO = 0;
+        uint tailFIFO = 0;
+        indexFIFO[headFIFO] = 0;
         nodesIdFIFO[headFIFO++] = 0;
-        bvhNodes[0].cacheIdLeft = 0;
-        bvhNodes[0].cacheIdRight = 1;
-        for(int i=0; headFIFO!=tailFIFO; i+=2){
-            int curNodeId = nodesIdFIFO[tailFIFO++];
+        for(uint i=0; headFIFO!=tailFIFO; i+=2){
+            uint curNodeId = nodesIdFIFO[tailFIFO++];
             BVHNode& node = bvhNodes[curNodeId];
             node.cacheIdLeft = i+1;
             node.cacheIdRight = i+2;
+
+            if(indexFIFO[tailFIFO-1] < nbCachedNodes){
+                cacheNodes[indexFIFO[tailFIFO-1]] = node;
+                //std::cout << indexFIFO[tailFIFO-1] << "  " << i+1 << "   " << i+2 << "\n";
+            }
+
             if(i<nbCachedNodes){
+
+                indexFIFO[headFIFO] = i+1;
                 nodesIdFIFO[headFIFO++] = curNodeId+1;
-                nodesIdFIFO[headFIFO++] = curNodeId+node.sizeLeft;
+                indexFIFO[headFIFO] = i+2;
+                nodesIdFIFO[headFIFO++] = curNodeId+node.sizeLeft+1;
             }
         }*/
 
@@ -257,10 +274,12 @@ private:
     uint nbNodes = 0;
 
     BVHNode*        bvhNodes;
+    //BVHNode*        cacheNodes;
     Point3<float>*  elementsMemory;
     ArraySegment*   stackMemory;
     Point3<float>** workingBuffer;
 
+    // TODO use fminf and fmaxf 
     __host__ __device__ bool intersectBox(const Point3<float>& top, const Vec3<float>& invRayDir, const Point3<float>& rayOrigin, const float margin) const {
         float min, max;
 
@@ -289,7 +308,7 @@ private:
         const float tNearZ = (-rayOrigin.z) * invRayDir.z;
         const float tFarZ  = (top.z - rayOrigin.z) * invRayDir.z;
 
-       if(tNearZ > tFarZ){
+        if(tNearZ > tFarZ){
             min = min < tFarZ  ? tFarZ  : min;
             max = max > tNearZ ? tNearZ : max;
         }else{
