@@ -1,14 +1,12 @@
 #pragma once
 
 #include "../primitives/Bbox.cuh"
-#include "../primitives/Ray.cuh"
 #include "../utils/utils.cuh"
 #include "../array/Array.cuh"
 
 #include <cstdio>
 #include <iostream>
 #include <ostream>
-#include <vector>
 
 constexpr byte ELEMENTS_MAX_SIZE = 1;
 
@@ -30,7 +28,7 @@ struct ArraySegment{
 class BVH{
 public:
     __host__ BVH(const uint nbPixels, const float pixelSize): 
-    nbPixels(nbPixels), pixelSize(pixelSize) {
+    nbPixels(nbPixels), margin(pixelSize/2) {
         bvhNodes       = (BVHNode*)        calloc(2*nbPixels, sizeof(BVHNode));
         stackMemory    = (ArraySegment*)   calloc(2*nbPixels, sizeof(ArraySegment));
         workingBuffer  = (Point3<float>**) calloc(nbPixels,   sizeof(Point3<float>*));
@@ -68,7 +66,7 @@ public:
             memCpuToGpu(workingBufferGPU, workingBuffer, nbPixels*sizeof(Point3<float>*));
         }
 
-        BVH tmp = BVH(nbPixels, pixelSize);
+        BVH tmp = BVH(nbPixels, margin);
         tmp.freeAfterBuild();
         tmp.freeAllMemory();
         tmp.nbNodes       = nbNodes;
@@ -81,7 +79,7 @@ public:
     }
 
     __host__ void fromGPU(BVH* replica){
-        BVH tmp = BVH(nbPixels, pixelSize);
+        BVH tmp = BVH(nbPixels, margin);
         tmp.freeAfterBuild();
         tmp.freeAllMemory();
         memGpuToCpu(&tmp,     replica,      sizeof(BVH));
@@ -99,7 +97,7 @@ public:
         }
 
         nbNodes   = tmp.nbNodes;
-        pixelSize = tmp.pixelSize;
+        margin = tmp.margin;
         freeGPU(replica);
     }
 
@@ -124,20 +122,19 @@ public:
     }
 
     void build(Array2D<Point3<float>*>& points) {
-        const float margin = pixelSize/2;
-
         Bbox<float> globalBbox = Bbox<float>();
-        std::vector<uint> stack = std::vector<uint>();
+
+        uint* stack = (uint*) calloc(2*nbPixels, sizeof(uint));
+        uint stackSize=0;
 
         uint elementsCounter = 0;
         uint nbSegments = 0;
 
-        stack.push_back(nbSegments);
+        stack[stackSize++] = nbSegments;
         stackMemory[nbSegments++] = ArraySegment{nullptr, points.begin(), points.end()};
         
-        while(stack.size() != 0){
-            ArraySegment* curSegment = &stackMemory[stack.back()];
-            stack.pop_back();
+        while(stackSize != 0){
+            ArraySegment* const curSegment = &stackMemory[stack[--stackSize]];
             curSegment->node = new (&bvhNodes[nbNodes++]) BVHNode();
 
             const uint curSize = curSegment->tail - curSegment->head;
@@ -149,14 +146,14 @@ public:
             }else{
                 globalBbox.setEnglobing(curSegment->head, curSize, margin);
                 const uint splitIndex = split(curSegment->head, curSize, globalBbox);
-                Point3<float>** middle = &(curSegment->head[splitIndex]);
+                Point3<float>** const middle = &(curSegment->head[splitIndex]);
 
                 curSegment->node->bboxRight.setEnglobing(middle, curSegment->tail-middle, margin);
-                stack.push_back(nbSegments);
+                stack[stackSize++] = nbSegments;
                 stackMemory[nbSegments++] = ArraySegment{curSegment, middle, curSegment->tail};
                 
                 curSegment->node->bboxLeft.setEnglobing(curSegment->head, middle-curSegment->head, margin);
-                stack.push_back(nbSegments);
+                stack[stackSize++] = nbSegments;
                 stackMemory[nbSegments++] = ArraySegment{curSegment, curSegment->head, middle};
             }
 
@@ -170,11 +167,11 @@ public:
                 segment = segment->parent;
             }
         }
-
+        free(stack);
     }
 
 private:
-    float pixelSize; // TODO this member is always used divided by two, it can be stored divided by two
+    float margin;
     const uint nbPixels;
     uint nbNodes = 0;
 
@@ -182,7 +179,7 @@ private:
     ArraySegment*   stackMemory;
     Point3<float>** workingBuffer;
 
-    __host__ __device__ int split(Point3<float>** points, const uint size, const Bbox<float>& bbox) const {
+    __host__ int split(Point3<float>** const points, const uint size, const Bbox<float>& bbox) const {
         const float dx = bbox.getEdgeLength('X');
         const float dy = bbox.getEdgeLength('Y');
         //const float dz = bbox->getEdgeLength('Z');

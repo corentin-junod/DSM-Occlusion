@@ -7,7 +7,7 @@
 void* allocGPU(const uint size, const uint count = 1);
 void freeGPU(void* const memory);
 void syncGPU();
-void check_error(cudaError_t result, const char* const func, const char* const file, const int line);
-void memGpuToCpu(void* to, const void* from, const uint size);
-void memCpuToGpu(void* to, const void* from, const uint size);
+void check_error(const cudaError_t result, const char* const func, const char* const file, const int line);
+void memGpuToCpu(void* const to, const void* const from, const uint size);
+void memCpuToGpu(void* const to, const void* const from, const uint size);
 void printDevicesInfos();

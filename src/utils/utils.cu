@@ -18,7 +18,7 @@ void syncGPU(){
     checkError(cudaDeviceSynchronize());
 }
 
-void check_error(cudaError_t result, const char* const func, const char* const file, const int line) {
+void check_error(const cudaError_t result, const char* const func, const char* const file, const int line) {
     if (result) {
         uint res = static_cast<uint>(result);
         std::cerr << "CUDA error = "<<res<<" ("<< cudaGetErrorString(result) <<") at "<<file<<":"<<line<<" '"<<func<<"'\n";
@@ -27,11 +27,11 @@ void check_error(cudaError_t result, const char* const func, const char* const f
     }
 }
 
-void memGpuToCpu(void* to, const void* from, const uint size){
+void memGpuToCpu(void* const to, const void* const from, const uint size){
     checkError(cudaMemcpy(to, from, size, cudaMemcpyDeviceToHost));
 }
 
-void memCpuToGpu(void* to, const void* from, const uint size){
+void memCpuToGpu(void* const to, const void* const from, const uint size){
     checkError(cudaMemcpy(to, from, size, cudaMemcpyHostToDevice));
 }
 
@@ -40,24 +40,26 @@ void printDevicesInfos(){
     int nbDevices;
     cudaGetDeviceCount(&nbDevices);
   
+    printf("***** GPU Information *****\n");
     printf("Number of devices: %d\n", nbDevices);
-    for (int i=0; i<nbDevices; i++) {
-        cudaDeviceProp prop;
-        cudaGetDeviceProperties(&prop, i);
+    for (uint i=0; i<nbDevices; i++) {
+        cudaDeviceProp p;
+        cudaGetDeviceProperties(&p, i);
         printf("Device %d\n", i+1);
-        printf("  Device name: %s\n",                                prop.name);
-        printf("  Memory Clock Rate (MHz): %d\n",                    prop.memoryClockRate/1024);
-        printf("  Memory Bus Width (bits): %d\n",                    prop.memoryBusWidth);
-        printf("  Peak Memory Bandwidth (GB/s): %.1f\n",             prop.memoryClockRate*2.0*(prop.memoryBusWidth/8.0)/1.0e6);
-        printf("  Total global memory (Gbytes) %.1f\n",              (float)(prop.totalGlobalMem)/1024.0/1024.0/1024.0);
-        printf("  Shared memory per block (Kbytes) %.1f\n",          (float)(prop.sharedMemPerBlock)/1024.0);
-        printf("  minor-major: %d-%d\n",                             prop.minor, prop.major);
-        printf("  Warp-size: %d\n",                                  prop.warpSize);
-        printf("  Concurrent kernels: %s\n",                         prop.concurrentKernels?"yes":"no");
-        printf("  Concurrent computation/communication: %s\n",       prop.deviceOverlap?"yes":"no");
-        printf("  Threads per block : %d, Max [X:%d, Y:%d, Z:%d]\n", prop.maxThreadsPerBlock, prop.maxThreadsDim[0], prop.maxThreadsDim[1], prop.maxThreadsDim[2]);
-        printf("  Number of blocks per multiprocessor: %d\n",        prop.maxBlocksPerMultiProcessor);
-        printf("  Number of streaming multiprocessors : %d\n",       prop.multiProcessorCount);
-        printf("  Number of threads per multiprocessors : %d\n",     prop.maxThreadsPerMultiProcessor);
+        printf("  Device name: %s\n",                                p.name);
+        printf("  Memory Clock Rate (MHz): %d\n",                    p.memoryClockRate/1024);
+        printf("  Memory Bus Width (bits): %d\n",                    p.memoryBusWidth);
+        printf("  Peak Memory Bandwidth (GB/s): %.1f\n",             p.memoryClockRate*2.0*(p.memoryBusWidth/8.0)/1.0e6);
+        printf("  Total global memory (Gbytes) %.1f\n",              (float)(p.totalGlobalMem)/1024.0/1024.0/1024.0);
+        printf("  Shared memory per block (Kbytes) %.1f\n",          (float)(p.sharedMemPerBlock)/1024.0);
+        printf("  minor-major: %d-%d\n",                             p.minor, p.major);
+        printf("  Warp-size: %d\n",                                  p.warpSize);
+        printf("  Concurrent kernels: %s\n",                         p.concurrentKernels?"yes":"no");
+        printf("  Concurrent computation/communication: %s\n",       p.deviceOverlap?"yes":"no");
+        printf("  Threads per block : %d, Max [X:%d, Y:%d, Z:%d]\n", p.maxThreadsPerBlock, p.maxThreadsDim[0], p.maxThreadsDim[1], p.maxThreadsDim[2]);
+        printf("  Number of blocks per multiprocessor: %d\n",        p.maxBlocksPerMultiProcessor);
+        printf("  Number of streaming multiprocessors : %d\n",       p.multiProcessorCount);
+        printf("  Number of threads per multiprocessors : %d\n",     p.maxThreadsPerMultiProcessor);
     }
+    printf("**************************\n");
 }

@@ -5,7 +5,8 @@
 template<typename T>
 class Array2D{
 public:
-    __host__ __device__ Array2D(const uint width, const uint height, const bool allocArray=true): m_width(width), m_height(height){
+    __host__ __device__ Array2D(const uint width, const uint height, const bool allocArray=true): 
+    m_width(width), m_height(height){
         m_data = allocArray ? (T*)malloc(sizeof(T)*width*height) : nullptr; // TODO check for malloc errors
     }
 
@@ -24,20 +25,20 @@ public:
 
     __host__ Array2D<T>* toGPU() {
         T* dataOnGPU = (T*) allocGPU(sizeof(T), m_width*m_height);
-        checkError(cudaMemcpy(dataOnGPU, m_data, sizeof(T)*m_width*m_height, cudaMemcpyHostToDevice));
+        memCpuToGpu(dataOnGPU, m_data, sizeof(T)*m_width*m_height);
 
         Array2D<T> tmpArray = Array2D<T>(m_width, m_height, false);
         tmpArray.m_data = dataOnGPU;
         Array2D<T>* newArrayOnGPU = (Array2D<T>*) allocGPU(sizeof(Array2D<T>));
-        checkError(cudaMemcpy(newArrayOnGPU, &tmpArray, sizeof(Array2D<T>), cudaMemcpyHostToDevice));
+        memCpuToGpu(newArrayOnGPU, &tmpArray, sizeof(Array2D<T>));
         tmpArray.m_data = nullptr; // Avoid freeing a pointer on GPU because tmpArray goes out of scope
         return newArrayOnGPU;
     }
 
     __host__ void fromGPU(Array2D<T>* replica){
         Array2D<T> tmpArray = Array2D<T>(m_width, m_height, false);
-        checkError(cudaMemcpy(&tmpArray, replica, sizeof(Array2D<T>), cudaMemcpyDeviceToHost));
-        checkError(cudaMemcpy(m_data, tmpArray.m_data, sizeof(T)*m_width*m_height, cudaMemcpyDeviceToHost));
+        memGpuToCpu(&tmpArray, replica, sizeof(Array2D<T>));
+        memGpuToCpu(m_data, tmpArray.m_data, sizeof(T)*m_width*m_height);
         freeGPU(tmpArray.m_data);
         freeGPU(replica);
         tmpArray.m_data = nullptr; // Avoid freeing a pointer on GPU because tmpArray goes out of scope

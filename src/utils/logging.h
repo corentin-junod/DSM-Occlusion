@@ -5,16 +5,13 @@
 const char* const DATE_FORMAT = "%d.%m.%Y %H:%M:%S";
 
 inline std::ostream& cout() {
+    using namespace std;
+    const time_t now = chrono::system_clock::to_time_t(chrono::system_clock::now());
 #ifdef _WIN32
-    std::tm ltime;
-    const time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+    tm ltime;
     localtime_s(&ltime, &now);
-    return std::cout << "[" << std::put_time(&ltime, DATE_FORMAT) << "]  ";
+    return std::cout << "[" << put_time(&ltime, DATE_FORMAT) << "]  ";
 #else
-    time_t currentTime = time(nullptr);
-    struct tm* localTime = localtime(&currentTime);
-    char formattedTime[50];
-    strftime(formattedTime, sizeof(formattedTime), DATE_FORMAT, localTime);
-    return std::cout << "[" << formattedTime << "]  ";
+    return std::cout << "[" << put_time(localtime(&now), DATE_FORMAT) << "]  ";
 #endif
 }

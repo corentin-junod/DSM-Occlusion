@@ -11,8 +11,8 @@ public:
 
     uint getHeight() const { return height; }
     uint getWidth()  const { return width;  }
-    float getPixelSize() const;
-    float getNoDataValue() const;
+    float getPixelSize() const { return pixelSize; }
+    float getNoDataValue() const { return noDataValue; }
     void printInfos();
     void readData(float* data,  const uint x, const uint y, const uint width, const uint height) const;
     void writeData(float* data, const uint x, const uint y, const uint width, const uint height) const;
@@ -23,4 +23,6 @@ private:
     GDALRasterBand* dataBand;
     uint width;
     uint height;
+    float pixelSize;
+    float noDataValue;
 };

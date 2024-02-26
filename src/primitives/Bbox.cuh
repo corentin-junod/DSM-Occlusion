@@ -1,10 +1,7 @@
 #pragma once
 
 #include "Point3.cuh"
-#include "Ray.cuh"
-
 #include <iostream>
-#include <math.h>
 
 template<typename T>
 class Bbox{
@@ -17,7 +14,7 @@ public:
 
     template<typename U> __host__ friend std::ostream& operator<<(std::ostream& os, const Bbox<U>& bbox);
 
-    __host__ __device__ void setEnglobing(Point3<T>** points, const uint size, const T margin){
+    __host__ void setEnglobing(Point3<T>** points, const uint size, const T margin){
         minX = maxX = points[0]->x;
         minY = maxY = points[0]->y;
         /*minZ = */maxZ = points[0]->z;
@@ -39,7 +36,7 @@ public:
         maxZ = maxZ;
     }
 
-    __host__ __device__ T getEdgeLength(const char axis) const {
+    __host__ T getEdgeLength(const char axis) const {
         switch (axis) {
             case 'X' : return maxX - minX;
             case 'Y' : return maxY - minY;

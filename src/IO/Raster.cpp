@@ -12,6 +12,11 @@ Raster::Raster(const char* const filename, const Raster* const copyFrom) {
     dataBand = dataset->GetRasterBand(1);
     width  = dataBand->GetXSize();
     height = dataBand->GetYSize();
+    noDataValue = dataBand->GetNoDataValue();
+
+    double geoTransform[6];
+    dataset->GetGeoTransform(geoTransform);
+    pixelSize = geoTransform[1];
 }
  
 Raster::~Raster() {
@@ -22,16 +27,6 @@ Raster::~Raster() {
     dataBand->FlushCache();
     dataset->FlushCache(true);
     GDALClose((GDALDatasetH)dataset);
-}
-
-float Raster::getPixelSize() const {
-    double geoTransform[6];
-    dataset->GetGeoTransform(geoTransform);
-    return geoTransform[1];
-}
-
-float Raster::getNoDataValue() const {
-    return dataBand->GetNoDataValue();
 }
 
 void Raster::readData(float* data, const uint x, const uint y, const uint width, const uint height) const {
@@ -70,5 +65,4 @@ void Raster::printInfos(){
         << "\nScale : " << dataBand->GetScale()
         << "\nPixel size (X axis) : " << getPixelSize()
         << "\n***********************************\n";
-      //<< "Number of color in table entry : " << dataBand->GetColorTable()->GetColorEntryCount() << '\n';
 }

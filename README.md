@@ -2,7 +2,7 @@
 
 ## Key features
 
- - GPU accelerated and optimized
+ - GPU accelerated
  - Automated tiling
  - Handles arbitrary large models
 
