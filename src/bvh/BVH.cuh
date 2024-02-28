@@ -27,8 +27,7 @@ struct ArraySegment{
 
 class BVH{
 public:
-    __host__ BVH(const uint nbPixels, const float pixelSize): 
-    nbPixels(nbPixels), margin(pixelSize/2) {
+    __host__ BVH(const uint nbPixels, const float pixelSize): nbPixels(nbPixels), margin(pixelSize/2) {
         bvhNodes       = (BVHNode*)        calloc(2*nbPixels, sizeof(BVHNode));
         stackMemory    = (ArraySegment*)   calloc(2*nbPixels, sizeof(ArraySegment));
         workingBuffer  = (Point3<float>**) calloc(nbPixels,   sizeof(Point3<float>*));
@@ -66,7 +65,7 @@ public:
             memCpuToGpu(workingBufferGPU, workingBuffer, nbPixels*sizeof(Point3<float>*));
         }
 
-        BVH tmp = BVH(nbPixels, margin);
+        BVH tmp = BVH(nbPixels, margin*2);
         tmp.freeAfterBuild();
         tmp.freeAllMemory();
         tmp.nbNodes       = nbNodes;
@@ -79,7 +78,7 @@ public:
     }
 
     __host__ void fromGPU(BVH* replica){
-        BVH tmp = BVH(nbPixels, margin);
+        BVH tmp = BVH(nbPixels, margin*2);
         tmp.freeAfterBuild();
         tmp.freeAllMemory();
         memGpuToCpu(&tmp,     replica,      sizeof(BVH));
@@ -96,7 +95,7 @@ public:
             freeGPU(tmp.workingBuffer);
         }
 
-        nbNodes   = tmp.nbNodes;
+        nbNodes = tmp.nbNodes;
         margin = tmp.margin;
         freeGPU(replica);
     }
@@ -151,7 +150,7 @@ public:
                 curSegment->node->bboxRight.setEnglobing(middle, curSegment->tail-middle, margin);
                 stack[stackSize++] = nbSegments;
                 stackMemory[nbSegments++] = ArraySegment{curSegment, middle, curSegment->tail};
-                
+
                 curSegment->node->bboxLeft.setEnglobing(curSegment->head, middle-curSegment->head, margin);
                 stack[stackSize++] = nbSegments;
                 stackMemory[nbSegments++] = ArraySegment{curSegment, curSegment->head, middle};
@@ -159,7 +158,7 @@ public:
 
             ArraySegment* segment = curSegment;
             while(segment->parent != nullptr){
-                if(segment->node == segment->parent->node+1 ){ // If left child
+                if(segment->node == segment->parent->node+1){ // If left child
                     segment->parent->node->sizeLeft++;
                 }else{
                     segment->parent->node->sizeRight++;

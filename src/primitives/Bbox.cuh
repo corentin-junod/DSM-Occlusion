@@ -14,11 +14,11 @@ public:
 
     template<typename U> __host__ friend std::ostream& operator<<(std::ostream& os, const Bbox<U>& bbox);
 
-    __host__ void setEnglobing(Point3<T>** points, const uint size, const T margin){
+    __host__ void setEnglobing(Point3<T>** const points, const uint size, const T margin){
         minX = maxX = points[0]->x;
         minY = maxY = points[0]->y;
         /*minZ = */maxZ = points[0]->z;
-        for(uint i=0; i<size; i++){
+        for(uint i=1; i<size; i++){
             const Point3<T>* const point = points[i];
             if(point->x < minX) minX = point->x;
             if(point->x > maxX) maxX = point->x;
@@ -33,7 +33,7 @@ public:
         //minZ = 0;//-= margin*2;
         maxX += margin;
         maxY += margin;
-        maxZ = maxZ;
+        //maxZ = maxZ;
     }
 
     __host__ T getEdgeLength(const char axis) const {

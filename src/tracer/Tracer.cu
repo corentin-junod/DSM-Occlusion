@@ -33,10 +33,10 @@ void renderGPU(const Array2D<float>& data, const Array2D<Point3<float>>& points,
 
     float result = 0;
     for(uint i=0; i<raysPerPoint; i++){
-        const float rndTheta = fdividef((i%raysPerDir) + curand_uniform(&localRndState), raysPerDir-1);
+        const float rndTheta = fdividef((i%raysPerDir) + curand_uniform(&localRndState), raysPerDir);
         const float rndPhi   = fdividef((i/raysPerDir) + curand_uniform(&localRndState), NB_SEGMENTS_DIR);
 
-        const float cosThetaOverPdf = direction.setRandomInHemisphereCosineGPU(TWO_PI*fminf(rndPhi,1), fminf(rndTheta,1) );
+        const float cosThetaOverPdf = direction.setRandomInHemisphereCosineGPU(rndPhi, rndTheta );
         result += cosThetaOverPdf*bvh.getLighting(origin, direction);
         __syncthreads();
     }
