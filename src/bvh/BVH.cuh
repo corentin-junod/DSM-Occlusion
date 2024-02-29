@@ -107,7 +107,7 @@ public:
 
         while(nodeIndex < maxIndex){
             const BVHNode node = bvhNodes[nodeIndex];
-            if(node.isLeafe){
+            if(node.isLeafe && node.bboxLeft.intersects(invDir, origin)){
                 return 0;
             }else if(node.bboxLeft.intersects(invDir, origin)){
                 nodeIndex += 1;
@@ -141,6 +141,7 @@ public:
             if(curSize <= ELEMENTS_MAX_SIZE){
                 curSegment->node->isLeafe = true;
                 elementsCounter += curSize;
+                curSegment->node->bboxLeft.setEnglobing(curSegment->head, curSize, margin);
 
             }else{
                 globalBbox.setEnglobing(curSegment->head, curSize, margin);

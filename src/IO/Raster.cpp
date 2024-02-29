@@ -24,6 +24,7 @@ Raster::~Raster() {
     dataset->ClearStatistics();
     dataBand->ComputeStatistics(true, &min, &max, &mean, &dev, NULL, NULL);
     dataBand->SetStatistics(min, max, mean, dev);
+    dataBand->SetNoDataValue(-9999.0);
     dataBand->FlushCache();
     dataset->FlushCache(true);
     GDALClose((GDALDatasetH)dataset);
