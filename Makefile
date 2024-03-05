@@ -31,6 +31,10 @@ release: CXXFLAGS += -O3 -Xcompiler -fopenmp -ftz=true -prec-div=false --use_fas
 release: CC       += -O3 -Xcompiler -fopenmp -ftz=true -prec-div=false --use_fast_math -lineinfo
 release: build
 
+release_timing: CXXFLAGS += -O3 -Xcompiler -fopenmp -ftz=true -prec-div=false --use_fast_math -lineinfo -DTIMING_DEBUG
+release_timing: CC       += -O3 -Xcompiler -fopenmp -ftz=true -prec-div=false --use_fast_math -lineinfo -DTIMING_DEBUG
+release_timing: build
+
 debug: CXXFLAGS += -g -G -Xcompiler -fopenmp
 debug: CC       += -g -G -Xcompiler -fopenmp
 debug: build

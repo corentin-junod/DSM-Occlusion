@@ -1,1 +1,0 @@
-"build/occlusion.exe" -r 512 -t 1200 -i X:\Shading\mns\geneve\mns2023_10cm_sitg.tif -o X:\Shading\mns\geneve\ao_mns2023_10cm_sitg.tif

@@ -18,12 +18,13 @@ public:
         minX = maxX = points[0]->x;
         minY = maxY = points[0]->y;
         /*minZ = */maxZ = points[0]->z;
+        //#pragma omp parallel
         for(uint i=1; i<size; i++){
             const Point3<T>* const point = points[i];
-            if(point->x < minX) minX = point->x;
-            if(point->x > maxX) maxX = point->x;
-            if(point->y < minY) minY = point->y;
-            if(point->y > maxY) maxY = point->y;
+            if(     point->x < minX) minX = point->x;
+            else if(point->x > maxX) maxX = point->x;
+            if(     point->y < minY) minY = point->y;
+            else if(point->y > maxY) maxY = point->y;
             //if(point->z < minZ) minZ = point->z;
             if(point->z > maxZ) maxZ = point->z;
         }

@@ -104,17 +104,21 @@ public:
         const Vec3<float> invDir(fdividef(1,dir.x), fdividef(1,dir.y), fdividef(1,dir.z));
         const uint maxIndex = nbNodes;
         uint nodeIndex = 0;
+        bool wasHit = false;
 
         while(nodeIndex < maxIndex){
             const BVHNode node = bvhNodes[nodeIndex];
-            if(node.isLeafe && node.bboxLeft.intersects(invDir, origin)){
+            if(node.isLeafe && wasHit){
                 return 0;
             }else if(node.bboxLeft.intersects(invDir, origin)){
                 nodeIndex += 1;
+                wasHit=true;
             }else if(node.bboxRight.intersects(invDir, origin)){
                 nodeIndex += node.sizeLeft+1;
+                wasHit=true;
             }else{
                 nodeIndex += node.sizeRight+node.sizeLeft+1;
+                wasHit=false;
             }
         }
         return 1;
@@ -131,7 +135,11 @@ public:
 
         stack[stackSize++] = nbSegments;
         stackMemory[nbSegments++] = ArraySegment{nullptr, points.begin(), points.end()};
-        
+
+        TIMED_INIT(split_time)
+        TIMED_INIT(set_englobing_time)
+        TIMED_INIT(update_segment_size_time)
+
         while(stackSize != 0){
             ArraySegment* const curSegment = &stackMemory[stack[--stackSize]];
             curSegment->node = new (&bvhNodes[nbNodes++]) BVHNode();
@@ -141,32 +149,41 @@ public:
             if(curSize <= ELEMENTS_MAX_SIZE){
                 curSegment->node->isLeafe = true;
                 elementsCounter += curSize;
-                curSegment->node->bboxLeft.setEnglobing(curSegment->head, curSize, margin);
 
             }else{
-                globalBbox.setEnglobing(curSegment->head, curSize, margin);
-                const uint splitIndex = split(curSegment->head, curSize, globalBbox);
+                TIMED_ACC(set_englobing_time, globalBbox.setEnglobing(curSegment->head, curSize, margin); )
+                TIMED_ACC(split_time, const uint splitIndex = split(curSegment->head, curSize, globalBbox); )
+
                 Point3<float>** const middle = &(curSegment->head[splitIndex]);
 
-                curSegment->node->bboxRight.setEnglobing(middle, curSegment->tail-middle, margin);
-                stack[stackSize++] = nbSegments;
-                stackMemory[nbSegments++] = ArraySegment{curSegment, middle, curSegment->tail};
+                TIMED_ACC(set_englobing_time,
+                    curSegment->node->bboxRight.setEnglobing(middle, curSegment->tail-middle, margin);
+                    stack[stackSize++] = nbSegments;
+                    stackMemory[nbSegments++] = ArraySegment{curSegment, middle, curSegment->tail};
 
-                curSegment->node->bboxLeft.setEnglobing(curSegment->head, middle-curSegment->head, margin);
-                stack[stackSize++] = nbSegments;
-                stackMemory[nbSegments++] = ArraySegment{curSegment, curSegment->head, middle};
+                    curSegment->node->bboxLeft.setEnglobing(curSegment->head, middle-curSegment->head, margin);
+                    stack[stackSize++] = nbSegments;
+                    stackMemory[nbSegments++] = ArraySegment{curSegment, curSegment->head, middle};
+                )
             }
 
-            ArraySegment* segment = curSegment;
-            while(segment->parent != nullptr){
-                if(segment->node == segment->parent->node+1){ // If left child
-                    segment->parent->node->sizeLeft++;
-                }else{
-                    segment->parent->node->sizeRight++;
+            TIMED_ACC(update_segment_size_time,
+                ArraySegment* segment = curSegment;
+                while(segment->parent != nullptr){
+                    if(segment->node == segment->parent->node+1){ // If left child
+                        segment->parent->node->sizeLeft++;
+                    }else{
+                        segment->parent->node->sizeRight++;
+                    }
+                    segment = segment->parent;
                 }
-                segment = segment->parent;
-            }
+            )
         }
+
+        TIMED_PRINT(split_time)
+        TIMED_PRINT(set_englobing_time)
+        TIMED_PRINT(update_segment_size_time)
+
         free(stack);
     }
 
