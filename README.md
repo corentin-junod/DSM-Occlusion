@@ -1,4 +1,4 @@
-# Ray traced ambient occlusion for raster models (DEM, DTM, CHM)
+# Fast, ray-traced, occlusion for raster models
 
 ## Key features
 
@@ -6,7 +6,7 @@
  - Automated tiling
  - Handles arbitrary large models
 
-## Requirements / Build instructions
+## Requirements & Build instructions
 
 ### Requirements
 
