@@ -1,3 +1,5 @@
+#pragma once
+
 #include "../bvh/BVH.cuh"
 #include <curand_kernel.h>
 

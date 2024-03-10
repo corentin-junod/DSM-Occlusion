@@ -64,8 +64,8 @@ void Tracer::init(const bool prinInfos){
             pointsPointers[index] = &(points[index]);
         }
     }
+    
     bvh.build(pointsPointers);
-
     if(prinInfos) bvh.printInfos();
     bvh.freeAfterBuild();
 }

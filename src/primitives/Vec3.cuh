@@ -2,7 +2,6 @@
 
 #include "../utils/definitions.cuh"
 #include <iostream>
-#include <cuda_runtime.h>
 
 template<typename T>
 class Vec3{

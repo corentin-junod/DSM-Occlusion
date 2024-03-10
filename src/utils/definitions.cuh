@@ -9,6 +9,12 @@ constexpr float PI = 3.14159265358979323846f;
 constexpr float TWO_PI  = 2*PI;
 constexpr float ONE_OVER_PI = 1/PI;
 
+struct Extent {
+    int xMin = 0;
+    int xMax = 0;
+    int yMin = 0;
+    int yMax = 0;
+};
 
 // Timing helper functions
 #ifdef TIMING_DEBUG
@@ -23,8 +29,8 @@ constexpr float ONE_OVER_PI = 1/PI;
         name += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - name##_start);
 
 #else
-    #define TIMED_INIT(...) {}
-    #define TIMED_ACC(name, content) content;
+    #define TIMED_INIT(name) {}
+    #define TIMED_ACC(name, ...) __VA_ARGS__
     #define TIMED_PRINT(name) {}
 
 #endif

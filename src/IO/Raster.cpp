@@ -1,11 +1,17 @@
 #include "Raster.h"
 
+#include <cpl_error.h>
 #include <iostream>
+#include <stdexcept>
 
 Raster::Raster(const char* const filename, const Raster* const copyFrom) {
+    CPLPushErrorHandler(CPLQuietErrorHandler);
     GDALAllRegister();
     if(copyFrom == nullptr){
         dataset = (GDALDataset*) GDALOpen(filename, GA_ReadOnly);
+        if(dataset == nullptr){
+            throw std::runtime_error("Unable to open input file : " + std::string(filename));
+        }
     }else{
         dataset = copyFrom->dataset->GetDriver()->CreateCopy(filename, copyFrom->dataset, false, NULL, NULL, NULL ); 
     }
