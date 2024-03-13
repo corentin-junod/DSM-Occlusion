@@ -17,15 +17,15 @@ Download the latest release and
 
 ### Usage
 
-- -i inputFile  
+- ***-i inputFile***  
 *mandatory parameter*  
 Path to the input file. Must be a file supported by GDAL like .tif
 
-- -o outputFile  
+- ***-o outputFile***  
 *optional parameter*, default value : output.tif
 Path to the output file, where the result will be written
 
-- [-r raysPerPixel]  
+- ***-r raysPerPixel***  
 *optional parameter*, default value : TODO  
 Number of rays to launch for each pixel. Increasing the parameter increases the render quality and rendering time.  
   - lower than 256 = low quality
@@ -33,17 +33,17 @@ Number of rays to launch for each pixel. Increasing the parameter increases the 
   - lower than 2048 = high quality 
 
 
-- [-t tile size (in pixels)]   
+- ***-t tile size (in pixels)***   
 *optional parameter*, default value : TODO  
 The input file is processed by square tiles. This parameter controls the tile side length.  
 Smaller tiles are computed faster, but lead to a larger buffer surface (see next parameter) and may create border error if the buffers are not large enough.  
 Larger tiles are more computation heavy for the GPU.
 
-- [-b tile buffer (in pixels)]   
+- ***-b tile buffer (in pixels)***   
 *optional parameter*, default value : 1/3 of the tile size  
 The input file is processed by square tiles. To avoid border error, tiles are overlapping. This parameter controls the tile overlapping amount (in pixels) in each direction. 
 
-- --info  
+- ***--info***  
 *optional parameter*  
 Prints information about the GDAL driver and the graphic card. Does not impact the output.  
 
