@@ -62,7 +62,7 @@ Prints information about the GDAL driver and the graphic card. Does not impact t
     - [CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit)
     - GDAL
       - The easiest way to get GDAL is to install [OSGeo4W](https://trac.osgeo.org/osgeo4w)
-      - You can either install GDAL by using the installer manually or by running the command `osgeo4w-setup.exe -q -r -s https://download.osgeo.org/osgeo4w/v2/ -P gdal`
+      - You can either install GDAL by using the installer manually or by running the command `osgeo4w-setup.exe -q -r -s https://download.osgeo.org/osgeo4w/v2/ -P gdal gdal-devel`
 
 2. Clone this repository
 
