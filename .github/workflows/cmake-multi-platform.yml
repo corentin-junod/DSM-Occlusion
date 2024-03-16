@@ -57,11 +57,11 @@ jobs:
     - run: echo "Installed cuda version ${{ steps.cuda-toolkit.outputs.cuda }} at ${{ steps.cuda-toolkit.outputs.CUDA_PATH }}"
 
     - name: Retrieve GDAL
-      run:   |
+      run: |
          if [ "$RUNNER_OS" == "Linux" ]; then
-              add-apt-repository ppa:ubuntugis/ppa -y
-              apt-get update
-              apt-get install libgdal-dev
+              sudo add-apt-repository ppa:ubuntugis/ppa -y
+              sudo apt-get update
+              sudo apt-get install libgdal-dev
          elif [ "$RUNNER_OS" == "Windows" ]; then
               curl -o osgeo4w-setup.exe https://download.osgeo.org/osgeo4w/v2/osgeo4w-setup.exe
          else
