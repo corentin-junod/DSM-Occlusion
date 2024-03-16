@@ -43,7 +43,6 @@ jobs:
       uses: Jimver/cuda-toolkit@v0.2.14
       id: cuda-toolkit
       with:
-        #sub-packages: '["nvcc"]'
         method: 'network'
 
     - name: Retrieve & Install GDAL
@@ -55,7 +54,7 @@ jobs:
               sudo apt-get install libgdal-dev
          elif [ "$RUNNER_OS" == "Windows" ]; then
               curl -o ./osgeo4w-setup.exe https://download.osgeo.org/osgeo4w/v2/osgeo4w-setup.exe
-              ./osgeo4w-setup.exe -q -r -s https://download.osgeo.org/osgeo4w/v2/ -P gdal -P gdal-devel
+              ./osgeo4w-setup.exe -q -r -s -k https://download.osgeo.org/osgeo4w/v2/ -P gdal -P gdal-devel
          else
               echo "$RUNNER_OS not supported"
               exit 1
@@ -69,6 +68,5 @@ jobs:
         -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
 
     - name: Build
-      # Build your program with the given configuration. Note that --config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
       run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }}
               
