@@ -60,6 +60,7 @@ jobs:
               sudo apt-get install libgdal-dev
          elif [ "$RUNNER_OS" == "Windows" ]; then
               curl -o osgeo4w-setup.exe https://download.osgeo.org/osgeo4w/v2/osgeo4w-setup.exe
+              osgeo4w-setup.exe -q -r -s https://download.osgeo.org/osgeo4w/v2/ -P gdal -P gdal-devel
          else
               echo "$RUNNER_OS not supported"
               exit 1
