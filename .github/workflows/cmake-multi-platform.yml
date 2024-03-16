@@ -15,11 +15,11 @@ jobs:
       fail-fast: false
 
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-2019]
         build_type: [Release]
         c_compiler: [gcc, clang, cl]
         include:
-          - os: windows-latest
+          - os: windows-2019
             c_compiler: cl
             cpp_compiler: cl
           - os: ubuntu-latest
@@ -29,7 +29,7 @@ jobs:
             c_compiler: clang
             cpp_compiler: clang++
         exclude:
-          - os: windows-latest
+          - os: windows-2019
             c_compiler: gcc
           - os: windows-latest
             c_compiler: clang
@@ -50,6 +50,9 @@ jobs:
       # You may pin to the exact commit or the version. uses: Jimver/cuda-toolkit@dc0ca7bb29c5a92f7a963d3d5c93f8d59765136a
       uses: Jimver/cuda-toolkit@v0.2.14
       id: cuda-toolkit
+      with:
+        sub-packages: '["nvcc"]'
+        method: 'network'
 
     - run: echo "Installed cuda version is:${{ steps.cuda-toolkit.outputs.cuda }}"
     - run: echo "Cuda install location:${{ steps.cuda-toolkit.outputs.CUDA_PATH }}"
@@ -58,9 +61,9 @@ jobs:
     - name: Retrive GDAL
       run:   |
          if [ "$RUNNER_OS" == "Linux" ]; then
-              add-apt-repository ppa:ubuntugis/ppa
+              add-apt-repository ppa:ubuntugis/ppa -y
               apt-get update
-              apt-get install gdal
+              apt-get install libgdal-dev
          elif [ "$RUNNER_OS" == "Windows" ]; then
               curl -o osgeo4w-setup.exe https://download.osgeo.org/osgeo4w/v2/osgeo4w-setup.exe
          else
