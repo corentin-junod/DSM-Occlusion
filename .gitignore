@@ -4,5 +4,4 @@ data/*
 *.ppm
 TODO
 run.bat
-VSProject/.vs
-VSProject/x64
+dll_dependencies

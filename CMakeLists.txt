@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
 enable_language(CUDA)
 
+set(CMAKE_SUPPRESS_REGENERATION true)
+
 project(
     DEM_Occlusion
     VERSION 0.1
