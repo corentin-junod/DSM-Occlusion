@@ -50,8 +50,6 @@ jobs:
       with:
         sub-packages: '["nvcc"]'
         method: 'network'
-      
-    - run: echo "Installed cuda version ${{ steps.cuda-toolkit.outputs.cuda }} at ${{ steps.cuda-toolkit.outputs.CUDA_PATH }}"
 
     - name: Retrieve & Install GDAL
       shell: bash
