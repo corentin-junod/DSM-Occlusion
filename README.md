@@ -70,8 +70,8 @@ Prints information about the GDAL driver and the graphic card. Does not impact t
 
 4. Navigate to the repository root and generate the project using the command `cmake -B ./build`
 
-5. Build the project using `msbuild ./build/DEM_Occlusion.sln`  
-To build in x64 release, use `msbuild ./build/DEM_Occlusion.sln /p:Configuration=Release /p:Platform=x64`
+5. Build the project using `msbuild ./build/DSM_Occlusion.sln`  
+To build in x64 release, use `msbuild ./build/DSM_Occlusion.sln /p:Configuration=Release /p:Platform=x64`
 
 6. By default, the executable is generated in *./build/Debug/*, *./build/Release/*, *./build/x64/Release/* or *./build/x64/Release/* based on the build parameters. To specify a custom output folder, add a `/p:OutDir=<output_directory>` parameter.
 
