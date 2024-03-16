@@ -53,12 +53,10 @@ jobs:
       with:
         sub-packages: '["nvcc"]'
         method: 'network'
+      
+    - run: echo "Installed cuda version ${{ steps.cuda-toolkit.outputs.cuda }} at ${{ steps.cuda-toolkit.outputs.CUDA_PATH }}"
 
-    - run: echo "Installed cuda version is:${{ steps.cuda-toolkit.outputs.cuda }}"
-    - run: echo "Cuda install location:${{ steps.cuda-toolkit.outputs.CUDA_PATH }}"
-    - run: nvcc -V
-
-    - name: Retrive GDAL
+    - name: Retrieve GDAL
       run:   |
          if [ "$RUNNER_OS" == "Linux" ]; then
               add-apt-repository ppa:ubuntugis/ppa -y
