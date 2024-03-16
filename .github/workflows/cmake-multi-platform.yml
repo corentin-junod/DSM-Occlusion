@@ -50,12 +50,10 @@ jobs:
       # You may pin to the exact commit or the version. uses: Jimver/cuda-toolkit@dc0ca7bb29c5a92f7a963d3d5c93f8d59765136a
       uses: Jimver/cuda-toolkit@v0.2.14
       id: cuda-toolkit
+      
+    - run: echo "Installed cuda version ${{ steps.cuda-toolkit.outputs.cuda }} at ${{ steps.cuda-toolkit.outputs.CUDA_PATH }}"
 
-    - run: echo "Installed cuda version is:${{ steps.cuda-toolkit.outputs.cuda }}"
-    - run: echo "Cuda install location:${{ steps.cuda-toolkit.outputs.CUDA_PATH }}"
-    - run: nvcc -V
-
-    - name: Retrive GDAL
+    - name: Retrieve GDAL
       run:   |
          if [ "$RUNNER_OS" == "Linux" ]; then
               add-apt-repository ppa:ubuntugis/ppa
