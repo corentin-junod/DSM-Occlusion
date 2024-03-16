@@ -3,6 +3,7 @@
 
 ![DSM Occlusion example](/assets/neuchatel_banner.jpg)
 
+<br>
 <h2 align="center">Key features</h2>
 
  - **GPU accelerated**  
@@ -14,11 +15,12 @@
  - **Ray-traced algorithm**  
    Occlusion is computed using ray-tracing, simulating the real behaviour of light rays. *Currently, rays are not reflected on objects, leading to the same result as a sky-view factor*.
 
+<br>
 <h2 align="center">Installation</h2>
 
 Download the latest release and 
 
-
+<br>
 <h2 align="center">Usage</h2>
 
 - ***-i inputFile***  
@@ -53,6 +55,7 @@ Prints information about the GDAL driver and the graphic card. Does not impact t
 
 Example : `DSM_Occlusion -i /path/to/input.tif -o /path/to/output.tif -r 1024`
 
+<br>
 <h2 align="center">Build instructions<br>(setting up a development environment)</h2>
 
 ### Windows
