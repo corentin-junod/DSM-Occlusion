@@ -9,11 +9,9 @@ on:
 jobs:
   build:
     runs-on: ${{ matrix.os }}
-
     strategy:
       # Set fail-fast to false to ensure that feedback is delivered for all matrix combinations. Consider changing this to true when your workflow is stable.
       fail-fast: false
-
       matrix:
         os: [ubuntu-latest, windows-2019]
         build_type: [Release]
@@ -40,13 +38,12 @@ jobs:
     - uses: actions/checkout@v3
 
     - name: Set reusable strings
-      # Turn repeated input strings (such as the build output directory) into step outputs. These step outputs can be used throughout the workflow file.
       id: strings
       shell: bash
       run: |
         echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
 
-    - name: cuda-toolkit
+    - name: Retrieve & Install CUDA Toolkit
       # You may pin to the exact commit or the version. uses: Jimver/cuda-toolkit@dc0ca7bb29c5a92f7a963d3d5c93f8d59765136a
       uses: Jimver/cuda-toolkit@v0.2.14
       id: cuda-toolkit
@@ -56,7 +53,7 @@ jobs:
       
     - run: echo "Installed cuda version ${{ steps.cuda-toolkit.outputs.cuda }} at ${{ steps.cuda-toolkit.outputs.CUDA_PATH }}"
 
-    - name: Retrieve GDAL
+    - name: Retrieve & Install GDAL
       shell: bash
       run: |
          if [ "$RUNNER_OS" == "Linux" ]; then
