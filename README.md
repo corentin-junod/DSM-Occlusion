@@ -1,7 +1,7 @@
-<h1 align="center">DEM Occlusion</h1>
+<h1 align="center">DSM Occlusion</h1>
 <h3 align="center">Fast, ray-traced, occlusion for raster models</h3>
 
-![DEM Occlusion example](/assets/neuchatel_banner.jpg)
+![DSM Occlusion example](/assets/neuchatel_banner.jpg)
 
 ## Key features
 
@@ -73,7 +73,7 @@ Prints information about the GDAL driver and the graphic card. Does not impact t
 5. Build the project using `msbuild ./build/DEM_Occlusion.sln`  
 To build in x64 release, use `msbuild ./build/DEM_Occlusion.sln /p:Configuration=Release /p:Platform=x64`
 
-6. By default, the executable is generated in *./build/Debug*, *./build/Release*, *./build/x64/Release* or *./build/x64/Release* based on the build parameters. To specify a custom output folder, add a `/p:OutDir=<output_directory>` parameter.
+6. By default, the executable is generated in *./build/Debug/*, *./build/Release/*, *./build/x64/Release/* or *./build/x64/Release/* based on the build parameters. To specify a custom output folder, add a `/p:OutDir=<output_directory>` parameter.
 
 7. To start the executable, add the folder containing the GDAL .dll files to your PATH environment variable. If installed using OSGeo4W, the default path is *C:\OSGeo4W\bin*.
 

@@ -4,7 +4,7 @@ enable_language(CUDA)
 set(CMAKE_SUPPRESS_REGENERATION true)
 
 project(
-    DEM_Occlusion
+    DSM_Occlusion
     VERSION 0.1
     DESCRIPTION "Fast, ray-traced, occlusion for raster models"
     LANGUAGES CXX CUDA
