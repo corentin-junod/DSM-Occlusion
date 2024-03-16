@@ -78,13 +78,11 @@ Example : `DSM_Occlusion -i /path/to/input.tif -o /path/to/output.tif -r 1024`
 3. Open a "x64 Native Tools Command Prompt for VS 2022" (or your current VS version). Can be found by searching for it in the Windows.
 
 4. Navigate to the repository root and generate the project using the command `cmake -B ./build`
+   Then build the project using `cmake --build ./build --config Release`. The executable is located in ./build/Release.
 
-5. Build the project using `msbuild ./build/DSM_Occlusion.sln`  
-To build in x64 release, use `msbuild ./build/DSM_Occlusion.sln /p:Configuration=Release /p:Platform=x64`
+5. To start the executable, add the folder containing the GDAL .dll files to your PATH environment variable. If installed using OSGeo4W, the default path is *C:\OSGeo4W\bin*.
 
-6. By default, the executable is generated in *./build/Debug/*, *./build/Release/*, *./build/x64/Release/* or *./build/x64/Release/* based on the build parameters. To specify a custom output folder, add a `/p:OutDir=<output_directory>` parameter.
-
-7. To start the executable, add the folder containing the GDAL .dll files to your PATH environment variable. If installed using OSGeo4W, the default path is *C:\OSGeo4W\bin*.
+Note : You can also generate the executable by running `msbuild ./build/DSM_Occlusion.sln /p:Configuration=Release /p:Platform=x64 /p:OutDir=<output_directory>`
 
 #### Troubleshooting
 
