@@ -27,10 +27,10 @@ Path to the output file, where the result will be written
 
 - ***-r raysPerPixel***  
 *optional parameter*, default value : TODO  
-Number of rays to launch for each pixel. Increasing the parameter increases the render quality and rendering time.  
-  - lower than 256 = low quality
-  - lower than 1024 = medium quality
-  - lower than 2048 = high quality 
+Number of rays to launch for each pixel. Increasing the parameter decreases the noise and increases the render quality and rendering time.  
+  - lower than 256 = low quality (noise is very noticeable)
+  - lower than 1024 = medium quality (noise is noticeable, but limited)
+  - lower than 2048 = high quality (noise is almost not noticeable)
 
 
 - ***-t tile size (in pixels)***   
@@ -45,7 +45,9 @@ The input file is processed by square tiles. To avoid border error, tiles are ov
 
 - ***--info***  
 *optional parameter*  
-Prints information about the GDAL driver and the graphic card. Does not impact the output.  
+Prints information about the GDAL driver and the graphic card. Does not impact the output. 
+
+Example : `DSM_Occlusion -i /path/to/input.tif -o /path/to/output.tif -r 1024`
 
 ## Build instructions (setting up a development environment)
 
