@@ -57,6 +57,7 @@ jobs:
     - run: echo "Installed cuda version ${{ steps.cuda-toolkit.outputs.cuda }} at ${{ steps.cuda-toolkit.outputs.CUDA_PATH }}"
 
     - name: Retrieve GDAL
+      shell: bash
       run: |
          if [ "$RUNNER_OS" == "Linux" ]; then
               sudo add-apt-repository ppa:ubuntugis/ppa -y
