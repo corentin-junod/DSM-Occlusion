@@ -3,26 +3,30 @@
 
 ![DSM Occlusion example](/assets/neuchatel_banner.jpg)
 
-## Key features
+<h2 align="center">Key features</h2>
 
- - GPU accelerated
- - Automated tiling
- - Handles arbitrary large models
+ - **GPU accelerated**  
+   Using CUDA, it reduces the computation time by order of magnitudes compared to other programs.
+ - **Automated tiling**  
+   Large files are automatically split into tiles, with configurable size and margins (buffers to avoid border effects).
+ - **Handles large models**  
+   Given enough disk space, can process files of several terabytes.
+ - **Ray-traced algorithm**  
+   Occlusion is computed using ray-tracing, simulating the real behaviour of light rays. *Currently, rays are not reflected on objects, leading to the same result as a sky-view factor*.
 
-
-## Installation
+<h2 align="center">Installation</h2>
 
 Download the latest release and 
 
 
-### Usage
+<h2 align="center">Usage</h2>
 
 - ***-i inputFile***  
 *mandatory parameter*  
 Path to the input file. Must be a file supported by GDAL like .tif
 
 - ***-o outputFile***  
-*optional parameter*, default value : output.tif
+*optional parameter*, default value : output.tif  
 Path to the output file, where the result will be written
 
 - ***-r raysPerPixel***  
@@ -35,13 +39,13 @@ Number of rays to launch for each pixel. Increasing the parameter decreases the 
 
 - ***-t tile size (in pixels)***   
 *optional parameter*, default value : TODO  
-The input file is processed by square tiles. This parameter controls the tile side length.  
+The input file is processed in square tiles. This parameter controls the tile side length.  
 Smaller tiles are computed faster, but lead to a larger buffer surface (see next parameter) and may create border error if the buffers are not large enough.  
 Larger tiles are more computation heavy for the GPU.
 
 - ***-b tile buffer (in pixels)***   
 *optional parameter*, default value : 1/3 of the tile size  
-The input file is processed by square tiles. To avoid border error, tiles are overlapping. This parameter controls the tile overlapping amount (in pixels) in each direction. 
+The input file is processed in square tiles. To avoid border error, tiles are overlapping. This parameter controls the tile overlapping amount (in pixels) in each direction. 
 
 - ***--info***  
 *optional parameter*  
@@ -49,7 +53,7 @@ Prints information about the GDAL driver and the graphic card. Does not impact t
 
 Example : `DSM_Occlusion -i /path/to/input.tif -o /path/to/output.tif -r 1024`
 
-## Build instructions (setting up a development environment)
+<h2 align="center">Build instructions<br>(setting up a development environment)</h2>
 
 ### Windows
 
@@ -103,6 +107,7 @@ To build in x64 release, use `msbuild ./build/DSM_Occlusion.sln /p:Configuration
 
 3. Navigate to the repository root and build the project using the command `cmake -B ./build`
 
-### MacOS
+### macOS
 
-- MacOS is currently not supported. Contributions are welcome !
+- macOS is currently not supported. Contributions are welcome !
+
