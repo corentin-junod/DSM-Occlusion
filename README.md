@@ -100,13 +100,12 @@ Note : You can also generate the executable by running `msbuild ./build/DSM_Occl
     - For the following distributions :
       - Arch : `sudo pacman -Syu git cuda cmake gdal`
       - Ubuntu : 
-        - Add the ubuntugis repository : `sudo add-apt-repository ppa:ubuntugis/ppa`
-        - Update the package list and install : `sudo apt-get update && sudo apt-get install cmake libgdal-dev`
-        - Download CUDA Toolkit from the official site (https://developer.nvidia.com/cuda-downloads). Select your preferred installer type and proceed through the installation process.
+        - Install CMake and GDAL : `sudo apt-get install git cmake libgdal-dev`
+        - Download CUDA Toolkit from the official site (https://developer.nvidia.com/cuda-downloads). Select your preferred installer type and follow the instructions for the *Base Installer*.
       - Other distributions :
         - **Git and CMake** : these are widely available form any distribution
         - **GDAL** : Depends on the distribution. The development package is often called gdal-devel or libgdal-dev. 
-        - **CUDA Toolkit** : Download it from the official site (https://developer.nvidia.com/cuda-downloads). Select your preferred installer type and proceed through the installation process.
+        - **CUDA Toolkit** : Download it from the official site (https://developer.nvidia.com/cuda-downloads). Select your preferred installer type and follow the instructions for the *Base Installer*.
 
 2. Clone this repository and navigate to its root.
 
