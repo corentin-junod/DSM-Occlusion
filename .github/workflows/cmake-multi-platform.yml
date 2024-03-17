@@ -56,6 +56,9 @@ jobs:
               echo "Workspace path : "
               echo $GITHUB_WORKSPACE
               curl -o $GITHUB_WORKSPACE/osgeo4w-setup.exe https://download.osgeo.org/osgeo4w/v2/osgeo4w-setup.exe
+              cd $GITHUB_WORKSPACE
+              dir
+              echo "OK"
               $GITHUB_WORKSPACE/osgeo4w-setup.exe -q -r -s -k https://download.osgeo.org/osgeo4w/v2/ -P gdal -P gdal-devel
               echo "Finished"
          else
