@@ -1,7 +1,12 @@
 cmake_minimum_required(VERSION 3.20)
-enable_language(CUDA)
 
 set(CMAKE_SUPPRESS_REGENERATION true)
+
+if (UNIX)
+    set(CMAKE_CUDA_COMPILER /usr/local/cuda/bin/nvcc)
+endif (UNIX)
+
+enable_language(CUDA)
 
 project(
     DSM_Occlusion
