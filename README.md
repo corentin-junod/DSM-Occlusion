@@ -100,13 +100,22 @@ Note : You can also generate the executable by running `msbuild ./build/DSM_Occl
     - CUDA toolkit
     - GDAL
 
-    - Command line for various distributions :
+    - For the following distributions :
       - Arch : `sudo pacman -Syu git cuda cmake gdal`
-      - Ubuntu : TODO
+      - Ubuntu : 
+        - Add the ubuntugis repository : `sudo add-apt-repository ppa:ubuntugis/ppa`
+        - Update the package list and install : `sudo apt-get update && sudo apt-get install cmake libgdal-dev`
+        - Download CUDA Toolkit from the official site (https://developer.nvidia.com/cuda-downloads). Select your preferred installer type and proceed through the installation process.
+      - Other distributions :
+        - **Git and Cmake** : these are widely available form any distribution
+        - **GDAL** 
+        - **CUDA Toolkit** : Download it from the official site (https://developer.nvidia.com/cuda-downloads). Select your preferred installer type and proceed through the installation process.
 
 2. Clone this repository
 
-3. Navigate to the repository root and build the project using the command `cmake -B ./build`
+3. Navigate to the repository root and generate the project using the command `cmake -B ./build`.
+
+4. Build the project using `cmake --build ./build --config Release`
 
 ### macOS
 
