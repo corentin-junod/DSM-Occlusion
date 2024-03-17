@@ -42,7 +42,7 @@ jobs:
       shell: bash
       run: |
          if [ "$RUNNER_OS" == "Linux" ]; then
-              sudo apt-get install libgdal-dev
+              sudo apt-get install libgdal-devy
          elif [ "$RUNNER_OS" == "Windows" ]; then
               curl -o $GITHUB_WORKSPACE/osgeo4w-setup.exe https://download.osgeo.org/osgeo4w/v2/osgeo4w-setup.exe
               $GITHUB_WORKSPACE/osgeo4w-setup.exe -r -k -q -s https://download.osgeo.org/osgeo4w/v2/ -P gdal -P gdal-devel
@@ -53,11 +53,11 @@ jobs:
 
     - name: Configure CMake
       run: >
-        cmake -B $GITHUB_OUTPUT/build
+        cmake -B ${{ github.workspace }}/build
         -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
         -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
         -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
 
     - name: Build
-      run: cmake --build $GITHUB_OUTPUT/build --config ${{ matrix.build_type }}
+      run: cmake --build ${{ github.workspace }}/build --config ${{ matrix.build_type }}
               
