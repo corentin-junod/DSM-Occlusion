@@ -1,0 +1,81 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Set fail-fast to false to ensure that feedback is delivered for all matrix combinations. Consider changing this to true when your workflow is stable.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-2019]
+        build_type: [Release]
+        c_compiler: [gcc, cl]
+        include:
+          - os: windows-2019
+            c_compiler: cl
+            cpp_compiler: cl
+          - os: ubuntu-latest
+            c_compiler: gcc
+            cpp_compiler: g++
+        exclude:
+          - os: windows-2019
+            c_compiler: gcc
+          - os: ubuntu-latest
+            c_compiler: cl
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Retrieve & Install CUDA Toolkit
+      uses: Jimver/cuda-toolkit@v0.2.14
+      id: cuda-toolkit
+      with:
+        method: 'network'
+
+    - name: Retrieve & Install GDAL
+      shell: bash
+      run: |
+         if [ "$RUNNER_OS" == "Linux" ]; then
+              sudo apt-get install libgdal-dev
+         elif [ "$RUNNER_OS" == "Windows" ]; then
+              curl -o $GITHUB_WORKSPACE/osgeo4w-setup.exe https://download.osgeo.org/osgeo4w/v2/osgeo4w-setup.exe
+              $GITHUB_WORKSPACE/osgeo4w-setup.exe -r -k -q -s https://download.osgeo.org/osgeo4w/v2/ -P gdal -P gdal-devel
+         else
+              echo "$RUNNER_OS not supported"
+              exit 1
+         fi
+
+    - name: Configure CMake
+      run: >
+        cmake -B ${{ github.workspace }}/build
+        -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
+        -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
+        -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+
+    - name: Build
+      run: cmake --build ${{ github.workspace }}/build --config ${{ matrix.build_type }}
+
+    - name: Create package
+      shell: bash
+      run: |
+        if [ "$RUNNER_OS" == "Linux" ]; then
+          zip release.zip ${{ github.workspace }}/build/DSM_Occlusion
+        elif [ "$RUNNER_OS" == "Windows" ]; then
+          tar acvf release.zip ${{ github.workspace }}/build/DSM_Occlusion
+        else
+              echo "$RUNNER_OS not supported"
+              exit 1
+        fi
+
+    - name: Creates a release in GitHub
+      shell: bash
+      run: gh release create v0.1.0 release.zip
+      env:
+        GITHUB_TOKEN: ${{ github.TOKEN }}
+              
