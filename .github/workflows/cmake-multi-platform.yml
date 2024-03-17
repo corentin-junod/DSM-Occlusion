@@ -42,7 +42,7 @@ jobs:
       shell: bash
       run: |
          if [ "$RUNNER_OS" == "Linux" ]; then
-              sudo apt-get install libgdal-devy
+              sudo apt-get install libgdal-dev
          elif [ "$RUNNER_OS" == "Windows" ]; then
               curl -o $GITHUB_WORKSPACE/osgeo4w-setup.exe https://download.osgeo.org/osgeo4w/v2/osgeo4w-setup.exe
               $GITHUB_WORKSPACE/osgeo4w-setup.exe -r -k -q -s https://download.osgeo.org/osgeo4w/v2/ -P gdal -P gdal-devel
