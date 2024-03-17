@@ -7,7 +7,7 @@
 <h2 align="center">Key features</h2>
 
  - **GPU accelerated**  
-   Using CUDA, it reduces the computation time by order of magnitudes compared to other programs.
+   Using CUDA reduces the computation time by order of magnitudes compared to other programs.
  - **Automated tiling**  
    Large files are automatically split into tiles, with configurable size and margins (buffers to avoid border effects).
  - **Handles large models**  
@@ -17,6 +17,9 @@
 
 <br>
 <h2 align="center">Installation</h2>
+
+This software requires a computer with a Nvidia graphic card.  
+Supported operating systems are Windows and Linux.
 
 Download the latest release and 
 
@@ -70,7 +73,7 @@ Example : `DSM_Occlusion -i /path/to/input.tif -o /path/to/output.tif -r 1024`
     - [CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit)
     - GDAL / GDAL-devel
       - The easiest way to get GDAL is through [OSGeo4W](https://trac.osgeo.org/osgeo4w)
-      - You can either automatically install GDAL by running the following command in a terminal :
+      - You can automatically install GDAL by running the following command in a terminal :
       `osgeo4w-setup.exe -q -r -s https://download.osgeo.org/osgeo4w/v2/ -P gdal -P gdal-devel`
 
 2. Clone this repository
@@ -111,13 +114,18 @@ Note : You can also generate the executable by running `msbuild ./build/DSM_Occl
 #### Troubleshooting
 
 - ***Unable to find GDAL library*** during build  
-*Reason* : The GDAL library files (.lib on Windows, or .so on Linux) failed to be located. 
+*Reason* : The GDAL library files (.lib on Windows, or .so on Linux) failed to be located.  
 *Solution* : Make sure GDAL is installed properly. If GDAL library is not installed in the expected directory (*/usr/lib/* on Linux, or *C:/OSGeo4W/lib/* on Windows) you can specify GDAL library location by defining GDAL_LIB_DIR during CMake generation. Example : `cmake -B ./build -DGDAL_LIB_DIR=<your_gdal_path>`
 
-- ***gdal_priv.h not found*** during build
-*Reason* : The GDAL header files (.h) failed to be located.
+- ***gdal_priv.h not found*** during build  
+*Reason* : The GDAL header files (.h) failed to be located.  
 *Solution* : Make sure GDAL is installed properly. If GDAL headers are not installed in the expected directory (*/usr/include/* on Linux, or *C:/OSGeo4W/include/* on Windows) you can specify GDAL headers location by defining GDAL_INCLUDE_DIR during CMake generation. Example : `cmake -B ./build -DGDAL_INCLUDE_DIR=<your_gdal_path>`
 
-- ***Unsupported gpu architecture 'compute_native'*** during build
-*Reason* : By default, the project is compiled for the hardware on the current machine. This error happens if CUDA was not able to find the current machine architecture (for example, when the current machine doesn't have a GPU).
+- ***Unsupported gpu architecture*** during build  
+*Reason* : By default, the project is compiled for the hardware on the current machine. This error happens if CUDA was not able to find the current machine architecture (for example, when the current machine doesn't have a GPU).  
 *Solution* : You can specify the GPU architecture to use by defining CMAKE_CUDA_ARCHITECTURES during generation. Example : `cmake -B ./build -DCMAKE_CUDA_ARCHITECTURES=75`. See [CMAKE_CUDA_ARCHITECTURES](https://cmake.org/cmake/help/latest/variable/CMAKE_CUDA_ARCHITECTURES.html).
+
+- ***Missing CUDA driver*** or ***CUDA driver version is insufficient*** when running the executable  
+*Reason* : Your CUDA driver is either missing or too old.  
+*Solution* : Install the latest [CUDA driver](https://www.nvidia.com/Download/index.aspx) for your system and graphic card.
+
