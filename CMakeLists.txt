@@ -30,7 +30,6 @@ else() # If Linux
 	add_compile_options(-Wall -Wextra -O3 -fopenmp)
     set(GDAL_INCLUDE_DIR "/usr/include/gdal/")
     find_library(GDAL_LIB_DIR gdal)
-
 endif()
 
 if (GDAL_INCLUDE_DIR)

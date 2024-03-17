@@ -53,6 +53,10 @@ jobs:
               sudo apt-get update
               sudo apt-get install libgdal-dev
          elif [ "$RUNNER_OS" == "Windows" ]; then
+              echo "Workspace path : "
+              echo ${{ github.workspace }}
+              echo "Current location : "
+              cd
               curl -o ${{ github.workspace }}/osgeo4w-setup.exe https://download.osgeo.org/osgeo4w/v2/osgeo4w-setup.exe
               cd
               dir
