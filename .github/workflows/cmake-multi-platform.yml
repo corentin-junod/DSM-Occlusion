@@ -59,7 +59,7 @@ jobs:
               cd $GITHUB_WORKSPACE
               dir
               echo "OK"
-              $GITHUB_WORKSPACE/osgeo4w-setup.exe -q -r -s -k https://download.osgeo.org/osgeo4w/v2/ -P gdal -P gdal-devel
+              $GITHUB_WORKSPACE/osgeo4w-setup.exe -r -s -k https://download.osgeo.org/osgeo4w/v2/ -P gdal -P gdal-devel
               echo "Finished"
          else
               echo "$RUNNER_OS not supported"
