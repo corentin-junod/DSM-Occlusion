@@ -95,10 +95,7 @@ Note : You can also generate the executable by running `msbuild ./build/DSM_Occl
 ### Linux
 
 1. Install the following packages for your distribution :
-    - Git
-    - CMake
-    - CUDA toolkit
-    - GDAL
+    - **Git**, **CMake**, **CUDA Toolkit** and **GDAL**
 
     - For the following distributions :
       - Arch : `sudo pacman -Syu git cuda cmake gdal`
@@ -107,15 +104,14 @@ Note : You can also generate the executable by running `msbuild ./build/DSM_Occl
         - Update the package list and install : `sudo apt-get update && sudo apt-get install cmake libgdal-dev`
         - Download CUDA Toolkit from the official site (https://developer.nvidia.com/cuda-downloads). Select your preferred installer type and proceed through the installation process.
       - Other distributions :
-        - **Git and Cmake** : these are widely available form any distribution
-        - **GDAL** 
+        - **Git and CMake** : these are widely available form any distribution
+        - **GDAL** : Depends on the distribution. The development package is often called gdal-devel or libgdal-dev. 
         - **CUDA Toolkit** : Download it from the official site (https://developer.nvidia.com/cuda-downloads). Select your preferred installer type and proceed through the installation process.
 
-2. Clone this repository
+2. Clone this repository and navigate to its root.
 
-3. Navigate to the repository root and generate the project using the command `cmake -B ./build`.
-
-4. Build the project using `cmake --build ./build --config Release`
+3. Generate the project using the command `cmake -B ./build`.  
+  Then build the project using `cmake --build ./build --config Release`
 
 ### macOS
 

@@ -54,13 +54,13 @@ jobs:
               sudo apt-get install libgdal-dev
          elif [ "$RUNNER_OS" == "Windows" ]; then
               echo "Workspace path : "
-              echo ${{ GITHUB_WORKSPACE }}
+              echo $GITHUB_WORKSPACE
               echo "Current location : "
               cd
-              curl -o ${{ GITHUB_WORKSPACE }}/osgeo4w-setup.exe https://download.osgeo.org/osgeo4w/v2/osgeo4w-setup.exe
+              curl -o $GITHUB_WORKSPACE/osgeo4w-setup.exe https://download.osgeo.org/osgeo4w/v2/osgeo4w-setup.exe
               cd
               dir
-              ${{ GITHUB_WORKSPACE }}/osgeo4w-setup.exe -q -r -s -k https://download.osgeo.org/osgeo4w/v2/ -P gdal -P gdal-devel
+              $GITHUB_WORKSPACE/osgeo4w-setup.exe -q -r -s -k https://download.osgeo.org/osgeo4w/v2/ -P gdal -P gdal-devel
          else
               echo "$RUNNER_OS not supported"
               exit 1
