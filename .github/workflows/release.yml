@@ -1,5 +1,8 @@
 name: Build & Release
 
+permissions:
+  contents: write
+
 on:
   push:
     branches: [ "main" ]
@@ -67,7 +70,7 @@ jobs:
         if [ "$RUNNER_OS" == "Linux" ]; then
           zip release.zip ${{ github.workspace }}/build/DSM_Occlusion
         elif [ "$RUNNER_OS" == "Windows" ]; then
-          tar acvf release.zip ${{ github.workspace }}/build/DSM_Occlusion
+          tar acvf release.zip ${{ github.workspace }}/build/Release/DSM_Occlusion.exe
         else
               echo "$RUNNER_OS not supported"
               exit 1
@@ -75,7 +78,7 @@ jobs:
 
     - name: Creates a release in GitHub
       shell: bash
-      run: gh release create v0.1.0 release.zip
+      run: gh release create ${{ github.ref_name }} "release.zip" --generate-notes --title "Version ${{ github.ref_name }}"
       env:
         GITHUB_TOKEN: ${{ github.TOKEN }}
               
