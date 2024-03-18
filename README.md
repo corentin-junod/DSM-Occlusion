@@ -12,7 +12,7 @@
    Large files are automatically split into tiles, with configurable size and margins (buffers to avoid border effects).
  - **Handles large models**  
    Given enough disk space, can process files of several terabytes.
- - **Ray-traced algorithm**  
+ - **Ray-traced rendering**  
    Occlusion is computed using ray-tracing, simulating the real behaviour of light rays. *Currently, rays are not reflected on objects, leading to the same result as a sky-view factor*.
 
 <br>
@@ -21,7 +21,15 @@
 This software requires a computer with a Nvidia graphic card.  
 Supported operating systems are Windows and Linux.
 
-Download the latest release and 
+### Windows
+
+1. Download the latest release from this repository and run the executable contained in it from a command line.
+
+### Linux
+
+1. Install the latest GDAL package for your distribution. The package is generally named *gdal* or *libgdal*
+
+2. Download the latest release from this repository and run the executable contained in it from a command line.
 
 <br>
 <h2 align="center">Usage</h2>

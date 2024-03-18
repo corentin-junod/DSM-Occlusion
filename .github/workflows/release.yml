@@ -70,7 +70,7 @@ jobs:
         if [ "$RUNNER_OS" == "Linux" ]; then
           tar acvf release.zip ${{ github.workspace }}/build/DSM_Occlusion
         elif [ "$RUNNER_OS" == "Windows" ]; then
-          cd ${{ github.workspace }}
+          cd '${{ github.workspace }}'
           tar acvf release.zip ./build/Release/DSM_Occlusion.exe
         else
           echo "$RUNNER_OS not supported"
