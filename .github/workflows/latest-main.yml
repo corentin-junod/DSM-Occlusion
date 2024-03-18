@@ -78,7 +78,7 @@ jobs:
     - name: Publish package
       shell: bash
       run: |  
-        gh release delete-asset 'latest-main' ${{ env.RELEASE_FILE_NAME }}
+        gh release delete-asset 'latest-main' ${{ env.RELEASE_FILE_NAME }} || true
         gh release upload 'latest-main' ${{ env.RELEASE_FILE_NAME }}
       env:
         GITHUB_TOKEN: ${{ github.TOKEN }}
