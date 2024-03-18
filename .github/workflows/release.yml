@@ -68,7 +68,7 @@ jobs:
       shell: bash
       run: |
         if [ "$RUNNER_OS" == "Linux" ]; then
-          zip release.zip ${{ github.workspace }}/build/DSM_Occlusion
+          tar acvf release.zip ${{ github.workspace }}/build/DSM_Occlusion
         elif [ "$RUNNER_OS" == "Windows" ]; then
           tar acvf release.zip ${{ github.workspace }}/build/Release/DSM_Occlusion.exe
         else
