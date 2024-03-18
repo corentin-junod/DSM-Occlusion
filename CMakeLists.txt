@@ -38,7 +38,7 @@ if (MSVC) # If windows
     endif()
 
     if(NOT DEFINED GDAL_LIB_DIR)
-        find_library(GDAL_LIB_DIR gdal.lib HINTS "C:/OSGeo4W/lib")
+        find_library(GDAL_LIB_DIR gdal.lib HINTS "C:/OSGeo4W/lib" REQUIRED)
     endif()
 
 
@@ -50,7 +50,7 @@ else() # If Linux
     endif()
 
     if(NOT DEFINED GDAL_LIB_DIR)
-        find_library(GDAL_LIB_DIR gdal)
+        find_library(GDAL_LIB_DIR NAMES libgdal gdal REQUIRED)
     endif()
 endif()
 
@@ -60,11 +60,8 @@ else()
     message(FATAL_ERROR "Unable to find GDAL headers directory")
 endif()
 
-if (GDAL_LIB_DIR)
-    target_link_libraries(${PROJECT_NAME} PRIVATE ${GDAL_LIB_DIR})
-else()
-    message(FATAL_ERROR "Unable to find GDAL library")
-endif()
+target_link_libraries(${PROJECT_NAME} PRIVATE ${GDAL_LIB_DIR})
+
 
 add_compile_options($<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler"-use_fast_math -Wall -Wextra -O3">)
 set_target_properties(${PROJECT_NAME} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)

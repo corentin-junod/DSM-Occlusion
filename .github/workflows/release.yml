@@ -73,13 +73,13 @@ jobs:
           cd ${{ github.workspace }}
           tar acvf release.zip ./build/Release/DSM_Occlusion.exe
         else
-              echo "$RUNNER_OS not supported"
-              exit 1
+          echo "$RUNNER_OS not supported"
+          exit 1
         fi
 
     - name: Creates a release in GitHub
       shell: bash
-      run: gl release delete ${{ github.ref_name }} && gh release create ${{ github.ref_name }} "release.zip" --generate-notes --title "Version ${{ github.ref_name }}"
+      run: gh release delete ${{ github.ref_name }} && gh release create ${{ github.ref_name }} "release.zip" --generate-notes --title "Version ${{ github.ref_name }}"
       env:
         GITHUB_TOKEN: ${{ github.TOKEN }}
               
