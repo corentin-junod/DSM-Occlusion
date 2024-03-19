@@ -37,6 +37,8 @@ jobs:
     - name: Retrieve & Install CUDA Toolkit
       uses: Jimver/cuda-toolkit@v0.2.14
       id: cuda-toolkit
+      with:
+        method: 'network'
 
     - name: Retrieve & Install GDAL
       shell: bash
