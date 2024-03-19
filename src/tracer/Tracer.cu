@@ -43,8 +43,8 @@ void renderGPU(const Array2D<float>& data, const Array2D<Point3<float>>& points,
     data[index] = ONE_OVER_PI*result/raysPerPoint; // Diffuse BSDF
 }
 
-Tracer::Tracer(Array2D<float>& data, const float pixelSize): 
-    data(data), pixelSize(pixelSize), 
+Tracer::Tracer(Array2D<float>& data, const float pixelSize, const float exaggeration): 
+    data(data), pixelSize(pixelSize), exaggeration(exaggeration),
     points(Array2D<Point3<float>>(data.width(), data.height())), 
     bvh(BVH(data.width()*data.height(), pixelSize)){}
 
@@ -60,7 +60,7 @@ void Tracer::init(const bool prinInfos){
     for(uint y=0; y<data.height(); y++){
         for(uint x=0; x<data.width(); x++){
             const uint index = y*data.width()+x;
-            points[index] = Point3<float>(x*pixelSize,y*pixelSize, data[index]);
+            points[index] = Point3<float>(x*pixelSize,y*pixelSize, data[index]*exaggeration);
             pointsPointers[index] = &(points[index]);
         }
     }

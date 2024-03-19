@@ -7,7 +7,14 @@
 #include "tracer/Tracer.cuh"
 #include "pipeline/Pipeline.cuh"
 
-const char* const USAGE = "Usage : -i inputFile [-o outputFile] [-r raysPerPixel] [-t tile size (in pixels)] [-b tile buffer (in pixels)] \n";
+const char* const USAGE =
+    "Usage : "
+    "-i inputFile "
+    "[-o outputFile] "
+    "[-r raysPerPixel] "
+    "[-t tile size (in pixels)] "
+    "[-b tile buffer (in pixels)] "
+    "[-e exaggeration]\n";
 
 bool strEqual(const char* const s1, const char* const s2){
     return std::strncmp(s1, s2, MAX_STR_SIZE) == 0;
@@ -17,6 +24,10 @@ uint strToUint(const char* const str){
     return std::strtoul(str, NULL, 10);
 }
 
+float strToFloat(const char* const str){
+    return std::strtof(str, NULL);
+}
+
 int main(int argc, char* argv[]){
     const char* inputFilename  = nullptr;
     const char* outputFilename = "output.tif";
@@ -24,6 +35,7 @@ int main(int argc, char* argv[]){
     uint  tileSize             = 300;
     uint  tileBuffer           = tileSize/3;
     bool  printInfos           = false;
+    float exaggeration         = 1.0;
 
     for(uint i=1; i<argc; i++){
         if(strEqual(argv[i], "-i")){
@@ -36,6 +48,8 @@ int main(int argc, char* argv[]){
             tileSize = strToUint(argv[++i]);
         }else if(strEqual(argv[i], "-b")){
             tileBuffer = strToUint(argv[++i]);
+        }else if(strEqual(argv[i], "-e")){
+            exaggeration = strToFloat(argv[++i]);
         }else if(strEqual(argv[i], "--info")){
             printInfos = true;
         }else{
@@ -61,7 +75,7 @@ int main(int argc, char* argv[]){
             }
 
             {
-                Pipeline pipeline = Pipeline(rasterIn, rasterOut, tileSize, rayPerPoint, tileBuffer);
+                Pipeline pipeline = Pipeline(rasterIn, rasterOut, tileSize, rayPerPoint, tileBuffer, exaggeration);
                 while(pipeline.step()){}
             }
             cout() << "Writing statistics and closing file... \n";

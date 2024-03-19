@@ -60,6 +60,10 @@ Larger tiles are more computation heavy for the GPU.
 *optional parameter*, default value : 1/3 of the tile size  
 The input file is processed in square tiles. To avoid border error, tiles are overlapping. This parameter controls the tile overlapping amount (in pixels) in each direction. 
 
+- ***-e exaggeration***   
+*optional parameter*, default value : 1.0
+This parameters scales all input values by the given factor. A value higher than 1.0 makes the shadows darker, revealing more details. 
+
 - ***--info***  
 *optional parameter*  
 Prints information about the GDAL driver and the graphic card. Does not impact the output. 
