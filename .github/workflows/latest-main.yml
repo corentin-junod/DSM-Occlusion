@@ -72,14 +72,17 @@ jobs:
           tar acvf latest-main-linux.zip ./build/DSM_Occlusion
         else
           echo "RELEASE_FILE_NAME=latest-main-windows.zip" >> $GITHUB_ENV
-          tar acvf latest-main-windows.zip ./build/Release/DSM_Occlusion.exe
+          mkdir C:\build
+          copy "C:\OSGeo4W\bin\*.dll" "C:\build"
+          copy "./build/Release/DSM_Occlusion.exe" "C:\build"
+          powershell Compress-Archive -Path "C:\build" -DestinationPath "./latest-main-windows.zip"
         fi
 
     - name: Publish package
       shell: bash
       run: |  
         gh release delete-asset latest-main ${{ env.RELEASE_FILE_NAME }} || true
-        gh release upload latest-main ${{ env.RELEASE_FILE_NAME }} || true
+        gh release upload latest-main ${{ env.RELEASE_FILE_NAME }}
       env:
         GITHUB_TOKEN: ${{ github.TOKEN }}
               
