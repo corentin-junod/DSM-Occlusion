@@ -23,11 +23,11 @@ Supported operating systems are Windows and Linux.
 
 ### Windows
 
-1. Download the latest release from this repository and run the executable contained in it from a command line.
+1. Download the  [release](https://github.com/Dolpic/DSM-Occlusion/releases/tag/latest-main)  from this repository and run the executable contained in it from a command line.
 
 ### Linux
 
-1. Install the latest GDAL package for your distribution. The package is generally named *gdal* or *libgdal*
+1. Install the package of GDAL version 30 for your distribution. The package is generally named *gdal* or *libgdal*.
 
 2. Download the latest release from this repository and run the executable contained in it from a command line.
 
