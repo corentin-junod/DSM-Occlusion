@@ -45,9 +45,11 @@ jobs:
       run: |
          if [ "$RUNNER_OS" == "Linux" ]; then
               sudo apt-get install libgdal-dev
+              echo "RELEASE_FILE_NAME=latest-main-linux.zip" >> $GITHUB_ENV
          elif [ "$RUNNER_OS" == "Windows" ]; then
               curl -o $GITHUB_WORKSPACE/osgeo4w-setup.exe https://download.osgeo.org/osgeo4w/v2/osgeo4w-setup.exe
               $GITHUB_WORKSPACE/osgeo4w-setup.exe -r -k -q -s https://download.osgeo.org/osgeo4w/v2/ -P gdal -P gdal-devel
+              echo "RELEASE_FILE_NAME=latest-main-windows.zip" >> $GITHUB_ENV
          else
               echo "$RUNNER_OS not supported"
               exit 1
@@ -68,19 +70,17 @@ jobs:
       shell: bash
       run: |
         cd '${{ github.workspace }}'
-        echo "RELEASE_FILE_NAME=latest-main-linux.zip" >> $GITHUB_ENV
-        tar acvf latest-main-linux.zip ./build/DSM_Occlusion
+        tar acvf ${{ env.RELEASE_FILE_NAME }} ./build/DSM_Occlusion
 
     - name: Create package
       if: runner.os == 'Windows'
       shell: pwsh
       run: |
         cd '${{ github.workspace }}'
-        echo "RELEASE_FILE_NAME=latest-main-windows.zip" >> $GITHUB_ENV
         mkdir C:\build
         cp C:\OSGeo4W\bin\*.dll C:\build
         cp .\build\Release\DSM_Occlusion.exe C:\build
-        Compress-Archive -Path C:\build\* -DestinationPath .\latest-main-windows.zip
+        Compress-Archive -Path C:\build\* -DestinationPath .\${{ env.RELEASE_FILE_NAME }}
 
     - name: Publish package
       shell: bash
