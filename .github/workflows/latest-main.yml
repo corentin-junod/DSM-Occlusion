@@ -64,19 +64,23 @@ jobs:
       run: cmake --build ${{ github.workspace }}/build --config ${{ matrix.build_type }}
 
     - name: Create package
+      if: runner.os == 'Linux'
       shell: bash
       run: |
         cd '${{ github.workspace }}'
-        if [ "$RUNNER_OS" == "Linux" ]; then
-          echo "RELEASE_FILE_NAME=latest-main-linux.zip" >> $GITHUB_ENV
-          tar acvf latest-main-linux.zip ./build/DSM_Occlusion
-        else
-          echo "RELEASE_FILE_NAME=latest-main-windows.zip" >> $GITHUB_ENV
-          mkdir C:/build
-          cp C:/OSGeo4W/bin/*.dll C:/build
-          cp ./build/Release/DSM_Occlusion.exe C:/build
-          zip ./latest-main-windows.zip C:/build/*
-        fi
+        echo "RELEASE_FILE_NAME=latest-main-linux.zip" >> $GITHUB_ENV
+        tar acvf latest-main-linux.zip ./build/DSM_Occlusion
+
+    - name: Create package
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        cd '${{ github.workspace }}'
+        echo "RELEASE_FILE_NAME=latest-main-windows.zip" >> $GITHUB_ENV
+        mkdir C:\build
+        cp C:\OSGeo4W\bin\*.dll C:\build
+        cp .\build\Release\DSM_Occlusion.exe C:\build
+        Compress-Archive -Path C:\build\* -DestinationPath .\latest-main-windows.zip
 
     - name: Publish package
       shell: bash
