@@ -18,7 +18,7 @@
 <br>
 <h2 align="center">Installation</h2>
 
-This software requires a computer with a Nvidia graphic card.  
+This software requires a computer with a Nvidia graphic card and its driver installed.  
 Supported operating systems are Windows and Linux.
 
 ### Windows

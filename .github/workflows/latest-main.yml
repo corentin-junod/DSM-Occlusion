@@ -73,9 +73,9 @@ jobs:
         else
           echo "RELEASE_FILE_NAME=latest-main-windows.zip" >> $GITHUB_ENV
           mkdir C:\build
-          copy "C:\OSGeo4W\bin\*.dll" "C:\build"
-          copy "./build/Release/DSM_Occlusion.exe" "C:\build"
-          powershell Compress-Archive -Path "C:\build" -DestinationPath "./latest-main-windows.zip"
+          cp "C:\OSGeo4W\bin\*.dll" "C:\build"
+          cp "./build/Release/DSM_Occlusion.exe" "C:\build"
+          zip ./latest-main-windows.zip "C:\build\*"
         fi
 
     - name: Publish package
