@@ -42,7 +42,7 @@ void printDevicesInfos(){
   
     printf("***** GPU Information *****\n");
     printf("Number of devices: %d\n", nbDevices);
-    for (uint i=0; i<nbDevices; i++) {
+    for (int i=0; i<nbDevices; i++) {
         cudaDeviceProp p;
         cudaGetDeviceProperties(&p, i);
         printf("Device %d\n", i+1);

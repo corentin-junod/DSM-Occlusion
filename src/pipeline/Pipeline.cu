@@ -67,8 +67,8 @@ void Pipeline::readData(PipelineStage* stage, const Raster* rasterIn, const uint
     const float noDataValue = rasterIn->getNoDataValue();
     const uint nbTiles = (uint)std::ceil((float)rasterIn->getHeight()/tileSize) * (uint)std::ceil((float)rasterIn->getWidth()/tileSize);
     uint nbTileProcessed = 0;
-    for(int y=0; y<rasterIn->getHeight(); y+=tileSize){
-        for(int x=0; x<rasterIn->getWidth(); x+=tileSize){
+    for(uint y=0; y<rasterIn->getHeight(); y+=tileSize){
+        for(uint x=0; x<rasterIn->getWidth(); x+=tileSize){
 
             Pipeline::waitForNextStep(stage);
             PipelineState* state = stage->state;
@@ -79,8 +79,8 @@ void Pipeline::readData(PipelineStage* stage, const Raster* rasterIn, const uint
             state->y = y;
             state->width  = std::min(tileSize, rasterIn->getWidth()-x);
             state->height = std::min(tileSize, rasterIn->getHeight()-y);
-            state->extent.xMin = std::max(0, x-(int)tileBuffer);
-            state->extent.yMin = std::max(0, y-(int)tileBuffer);
+            state->extent.xMin = std::max(0, (int)x-(int)tileBuffer);
+            state->extent.yMin = std::max(0, (int)y-(int)tileBuffer);
             state->extent.xMax = std::min(rasterIn->getWidth(), x+state->width+tileBuffer);
             state->extent.yMax = std::min(rasterIn->getHeight(),y+state->height+tileBuffer);
 
@@ -161,9 +161,9 @@ void Pipeline::writeData(PipelineStage* stage, const Raster* const rasterOut){
             const float noDataValue = rasterOut->getNoDataValue();
             Array2D<float> dataCropped(state->width, state->height);
             uint i=0, j=0;
-            for(uint curY=state->extent.yMin; curY < state->extent.yMax; curY++){
-                for(uint curX=state->extent.xMin; curX < state->extent.xMax; curX++){
-                    if(curY>=state->y && curY<state->y+state->height && curX>=state->x && curX<state->x+state->width){
+            for(int curY=state->extent.yMin; curY < state->extent.yMax; curY++){
+                for(int curX=state->extent.xMin; curX < state->extent.xMax; curX++){
+                    if(curY>=state->y && curY < state->y+(int)state->height && curX>=state->x && curX < state->x+(int)state->width){
                         dataCropped[i++] = ((*state->dataIn)[j] == noDataValue ? noDataValue : (*state->dataOut)[j]);
                     }
                     j++;

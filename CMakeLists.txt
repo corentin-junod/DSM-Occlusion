@@ -43,7 +43,7 @@ if (MSVC) # If windows
 
 
 else() # If Linux
-	target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic -O3 -fopenmp)
+	target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -O3 -fopenmp)
 
     if(NOT DEFINED GDAL_INCLUDE_DIR)
         set(GDAL_INCLUDE_DIR "/usr/include/gdal/")
@@ -63,6 +63,6 @@ endif()
 target_link_libraries(${PROJECT_NAME} PRIVATE ${GDAL_LIB_DIR})
 
 
-add_compile_options($<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler"-use_fast_math -Wall -Wextra -Wpedantic -O3">)
+add_compile_options($<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler"-use_fast_math -Wall -Wextra -O3">)
 set_target_properties(${PROJECT_NAME} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
                                                            
