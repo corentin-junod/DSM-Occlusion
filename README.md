@@ -13,12 +13,12 @@
  - **Handles large models**  
    Given enough disk space, can process files of several terabytes.
  - **Ray-traced rendering**  
-   Occlusion is computed using ray-tracing, simulating the real behaviour of light rays. *Currently, rays are not reflected on objects, leading to the same result as a sky-view factor*.
+   Occlusion is computed using ray-tracing, simulating the real behavior of light rays.
 
 <br>
 <h2 align="center">Installation</h2>
 
-This software requires a computer with a Nvidia graphic card and its driver installed.  
+This software requires a computer with an Nvidia graphic card and its driver installed.  
 Supported operating systems are Windows and Linux.
 
 ### Windows
@@ -43,18 +43,18 @@ Path to the input file. Must be a file supported by GDAL like .tif
 Path to the output file, where the result will be written
 
 - ***-r raysPerPixel***  
-*optional parameter*, default value : TODO  
+*optional parameter*, default value : 256  
 Number of rays to launch for each pixel. Increasing the parameter decreases the noise and increases the render quality and rendering time.  
   - lower than 256 = low quality (noise is very noticeable)
   - lower than 1024 = medium quality (noise is noticeable, but limited)
   - lower than 2048 = high quality (noise is almost not noticeable)
 
-
 - ***-t tile size (in pixels)***   
-*optional parameter*, default value : TODO  
+*optional parameter*, default value : 2000  
 The input file is processed in square tiles. This parameter controls the tile side length.  
 Smaller tiles are computed faster, but lead to a larger buffer surface (see next parameter) and may create border error if the buffers are not large enough.  
-Larger tiles are more computation heavy for the GPU.
+Larger tiles are more computation heavy for the GPU.  
+The optimal value for this parameter strongly depends on your graphic card, don't hesitate to try multiple sizes.
 
 - ***-b tile buffer (in pixels)***   
 *optional parameter*, default value : 1/3 of the tile size  
@@ -62,11 +62,16 @@ The input file is processed in square tiles. To avoid border error, tiles are ov
 
 - ***-e exaggeration***   
 *optional parameter*, default value : 1.0
-This parameters scales all input values by the given factor. A value higher than 1.0 makes the shadows darker, revealing more details. 
+This parameter scales all input values by the given factor. A value higher than 1.0 makes the shadows darker, revealing more details. 
+
+- ***-B maximum bounces***
+*optional parameter*, default value : 0
+The maximum number of times a ray can bounce on the geometry before the ray is considered not reaching the sky.
+The higher the value, the more accurate and luminous the result will be. *Increase this value will drastically increase the processing time!*. A value of 0 (the default) leads to the same result as computing the sky view factor.
 
 - ***--info***  
 *optional parameter*  
-Prints information about the GDAL driver and the graphic card. Does not impact the output. 
+Prints information about the GDAL driver and the graphic card. This is purely informative. 
 
 Example : `DSM_Occlusion -i /path/to/input.tif -o /path/to/output.tif -r 1024`
 

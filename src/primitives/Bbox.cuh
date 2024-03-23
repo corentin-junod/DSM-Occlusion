@@ -1,7 +1,10 @@
 #pragma once
 
 #include "Point3.cuh"
+#include "Vec3.cuh"
+
 #include <iostream>
+#include <curand_kernel.h>
 
 template<typename T>
 class Bbox{
@@ -77,6 +80,63 @@ public:
         max = fminf(tFarZ, max);
 
         return min < max && max > 0;
+    }
+
+    __device__
+    void /*T*/ bounceRay(Vec3<T>& dir, Point3<T>& origin, curandState& localRndState) const {
+        dir.normalize();
+        const Vec3<T> invDir(fdividef(1,dir.x), fdividef(1,dir.y), fdividef(1,dir.z));
+
+        const float tX1 = (minX - origin.x) * invDir.x;
+        const float tX2  = (maxX - origin.x) * invDir.x;
+        const float tXmin = fminf(tX1, tX2);
+        
+        const float tY1 = (minY - origin.y) * invDir.y;
+        const float tY2  = (maxY - origin.y) * invDir.y;
+        const float tYmin = fminf(tY1, tY2);
+
+        const float tZ1 = (/*minZ*/ - origin.z) * invDir.z;
+        const float tZ2  = (maxZ - origin.z) * invDir.z;
+        const float tZmin = fminf(tZ1, tZ2);
+
+        const float rndTheta = curand_uniform(&localRndState);
+        const float rndPhi   = curand_uniform(&localRndState);
+
+        Vec3<T> newDir = Vec3<T>(0,0,0);
+        newDir.setRandomInHemisphereCosineGPU(rndPhi, rndTheta);
+
+        if(tXmin > tYmin && tXmin > tZmin){
+            origin = Point3<T>(origin.x + tXmin*dir.x, origin.y + tXmin*dir.y,  origin.z + tXmin*dir.z);
+
+            if(dir.x > 0){
+                dir = Vec3<T>(-newDir.z, newDir.y,  newDir.x);
+                //return dir.x; // dot( -dir, (-1,0,0) )
+            }else{
+                dir = Vec3<T>( newDir.z, newDir.y, -newDir.x);
+                //return -dir.x; // dot( -dir, (1,0,0) )
+            }
+
+        }else if(tYmin > tXmin && tYmin > tZmin){
+            origin = Point3<T>(origin.x + tYmin*dir.x, origin.y + tYmin*dir.y,  origin.z + tYmin*dir.z);
+
+            if(dir.y > 0){
+                dir = Vec3<T>(newDir.x, -newDir.z,  newDir.y);
+                //return dir.y; // dot( -dir, (0,-1,0) )
+            }else{
+                dir = Vec3<T>(newDir.x,  newDir.z, -newDir.y);
+                //return -dir.y; // dot( -dir, (0,1,0) )
+            }
+
+        }else {
+            origin = Point3<T>(origin.x + tZmin*dir.x, origin.y + tZmin*dir.y,  origin.z + tZmin*dir.z);
+
+            if(dir.z > 0){
+                dir = Vec3<T>(-newDir.x, -newDir.y,  -newDir.z);
+                //return dir.z; // dot( -dir, (0,0,-1) )
+            }else{
+                //return -dir.z; // dot( -dir, (0,0,1) )
+            }
+        }
     }
 
 private:

@@ -5,7 +5,7 @@
 
 class Tracer{
 public:
-    Tracer(Array2D<float>& data, const float pixelSize, const float exaggeration=1.0);
+    Tracer(Array2D<float>& data, const float pixelSize, const float exaggeration=1.0, const uint maxBounce=0);
     ~Tracer();
 
     void init(const bool prinInfos);
@@ -14,6 +14,7 @@ public:
 private:
     const float pixelSize;
     const float exaggeration;
+    const uint maxBounces;
     
     BVH bvh; 
     Array2D<float>& data;

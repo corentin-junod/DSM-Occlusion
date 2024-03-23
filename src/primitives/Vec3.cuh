@@ -1,6 +1,8 @@
 #pragma once
 
 #include "../utils/definitions.cuh"
+#include "Point3.cuh"
+
 #include <iostream>
 
 template<typename T>
@@ -11,14 +13,16 @@ public:
     __host__ __device__ T getNormSquared() const { return x*x + y*y + z*z; }
     __host__ __device__ T dot(const Vec3<T>& other) const { return x*other.x + y*other.y + z*other.z; }
     
-    __host__ __device__ void normalize() {
+    __host__ __device__ 
+    void normalize() {
         const T norm = sqrtf(x*x + y*y + z*z);
         x /= norm;
         y /= norm;
         z /= norm;
     }
 
-    __device__ __forceinline__ float setRandomInHemisphereCosineGPU(const float rndPhi, const float rndTheta){
+    __device__ __forceinline__ 
+    float setRandomInHemisphereCosineGPU(const float rndPhi, const float rndTheta){
         const float theta = acosf(sqrtf(rndTheta));
         const float sinTheta = sinf(theta);
         const float phi = TWO_PI*rndPhi;

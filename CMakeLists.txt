@@ -31,7 +31,7 @@ set(CMAKE_CONFIGURATION_TYPES "Debug;Release")
 
 
 if (MSVC) # If windows
-	add_compile_options(/W4 /O2)
+	target_compile_options(${PROJECT_NAME} PRIVATE  /W4 /O2)
 
     if(NOT DEFINED GDAL_INCLUDE_DIR)
         set(GDAL_INCLUDE_DIR "C:/OSGeo4W/include")
@@ -43,7 +43,7 @@ if (MSVC) # If windows
 
 
 else() # If Linux
-	add_compile_options(-Wall -Wextra -O3 -fopenmp)
+	target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic -O3 -fopenmp)
 
     if(NOT DEFINED GDAL_INCLUDE_DIR)
         set(GDAL_INCLUDE_DIR "/usr/include/gdal/")
@@ -63,6 +63,6 @@ endif()
 target_link_libraries(${PROJECT_NAME} PRIVATE ${GDAL_LIB_DIR})
 
 
-add_compile_options($<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler"-use_fast_math -Wall -Wextra -O3">)
+add_compile_options($<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler"-use_fast_math -Wall -Wextra -Wpedantic -O3">)
 set_target_properties(${PROJECT_NAME} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
                                                            

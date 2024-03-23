@@ -4,7 +4,6 @@
 #include "../array/Array.cuh"
 
 #include "device_launch_parameters.h"
-#include <iostream>
 #include <random>
 
 std::default_random_engine genEngine;
@@ -15,7 +14,7 @@ constexpr uint SEED = 1423; // For reproducible runs, can be any value
 constexpr uint BLOCK_DIM_SIZE = 8;
 
 __global__
-void renderGPU(const Array2D<float>& data, const Array2D<Point3<float>>& points, const BVH& bvh, const uint raysPerPoint, curandState* const rndState){    
+void renderGPU(const Array2D<float>& data, const Array2D<Point3<float>>& points, const BVH& bvh, const uint raysPerPoint, const uint maxBounces, curandState* const rndState){    
     const int x = threadIdx.x + blockIdx.x * blockDim.x;
     const int y = threadIdx.y + blockIdx.y * blockDim.y;
     if(x>=data.width() || y>=data.height()) return;
@@ -37,14 +36,14 @@ void renderGPU(const Array2D<float>& data, const Array2D<Point3<float>>& points,
         const float rndPhi   = fdividef((i/raysPerDir) + curand_uniform(&localRndState), NB_SEGMENTS_DIR);
 
         const float cosThetaOverPdf = direction.setRandomInHemisphereCosineGPU(rndPhi, rndTheta );
-        result += cosThetaOverPdf*bvh.getLighting(origin, direction);
+        result += cosThetaOverPdf*bvh.getLighting(origin, direction, localRndState, maxBounces);
         __syncthreads();
     }
     data[index] = ONE_OVER_PI*result/raysPerPoint; // Diffuse BSDF
 }
 
-Tracer::Tracer(Array2D<float>& data, const float pixelSize, const float exaggeration): 
-    data(data), pixelSize(pixelSize), exaggeration(exaggeration),
+Tracer::Tracer(Array2D<float>& data, const float pixelSize, const float exaggeration, const uint maxBounces): 
+    data(data), pixelSize(pixelSize), exaggeration(exaggeration), maxBounces(maxBounces),
     points(Array2D<Point3<float>>(data.width(), data.height())), 
     bvh(BVH(data.width()*data.height(), pixelSize)){}
 
@@ -78,7 +77,7 @@ void Tracer::trace(const bool useGPU, const uint raysPerPoint){
         Array2D<Point3<float>>* pointsGPU = points.toGPU();
         BVH* bvhGPU = bvh.toGPU();
         Array2D<float>* dataGPU = data.toGPU();
-        renderGPU<<<gridDims, blockDims>>>(*dataGPU, *pointsGPU, *bvhGPU, raysPerPoint, randomState);
+        renderGPU<<<gridDims, blockDims>>>(*dataGPU, *pointsGPU, *bvhGPU, raysPerPoint, maxBounces, randomState);
         syncGPU();
         data.fromGPU(dataGPU);
         bvh.fromGPU(bvhGPU);

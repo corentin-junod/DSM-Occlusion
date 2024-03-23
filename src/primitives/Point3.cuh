@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Vec3.cuh"
+#include <iostream>
 
 template<typename T>
 class Point3{
@@ -16,10 +16,6 @@ public:
 
     __host__ __device__ bool operator!=(const Point3<T>& other) const {
         return x != other.x || y != other.y || z != other.z;
-    }
-
-    __host__ __device__ Vec3<T> operator-(const Point3<T>& other) const {
-        return Vec3<T>(x-other.x, y-other.y, z-other.z); 
     }
 
     T x, y, z;

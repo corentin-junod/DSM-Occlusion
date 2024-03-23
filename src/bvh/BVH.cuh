@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../primitives/Bbox.cuh"
+#include "../primitives/Vec3.cuh"
 #include "../utils/utils.cuh"
 #include "../array/Array.cuh"
 
@@ -100,20 +101,32 @@ public:
         freeGPU(replica);
     }
 
-    __device__ float getLighting(const Point3<float>& origin, const Vec3<float>& dir) const {
-        const Vec3<float> invDir(fdividef(1,dir.x), fdividef(1,dir.y), fdividef(1,dir.z));
+    __device__ float getLighting(const Point3<float>& origin, Vec3<float>& dir, curandState& localRndState, const uint maxBounces=0) const {
         const uint maxIndex = nbNodes;
+        Vec3<float> invDir(fdividef(1,dir.x), fdividef(1,dir.y), fdividef(1,dir.z));
+        Point3<float> curOrigin = Point3<float>(origin.x, origin.y, origin.z);
         uint nodeIndex = 0;
+        uint bounces = 0;
         bool wasHit = false;
+        float radiance = 1;
+        const float reflectivity = 1;
 
         while(nodeIndex < maxIndex){
             const BVHNode node = bvhNodes[nodeIndex];
             if(node.isLeafe && wasHit){
-                return 0;
-            }else if(node.bboxLeft.intersects(invDir, origin)){
+                if(bounces == maxBounces){
+                    return 0;
+                }
+                bounces++;
+                nodeIndex = 0;
+                wasHit = false;
+                node.bboxLeft.bounceRay(dir, curOrigin, localRndState);
+                radiance *= reflectivity;
+                invDir = Vec3<float>(fdividef(1,dir.x), fdividef(1,dir.y), fdividef(1,dir.z));
+            }else if(node.bboxLeft.intersects(invDir, curOrigin)){
                 nodeIndex += 1;
                 wasHit=true;
-            }else if(node.bboxRight.intersects(invDir, origin)){
+            }else if(node.bboxRight.intersects(invDir, curOrigin)){
                 nodeIndex += node.sizeLeft+1;
                 wasHit=true;
             }else{
@@ -121,7 +134,8 @@ public:
                 wasHit=false;
             }
         }
-        return 1;
+
+        return radiance;
     }
 
     void build(Array2D<Point3<float>*>& points) {
@@ -148,6 +162,7 @@ public:
             
             if(curSize <= ELEMENTS_MAX_SIZE){
                 curSegment->node->isLeafe = true;
+                curSegment->node->bboxLeft.setEnglobing(curSegment->head, curSize, margin);
                 elementsCounter += curSize;
 
             }else{

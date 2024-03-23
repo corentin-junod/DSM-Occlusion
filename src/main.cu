@@ -4,7 +4,6 @@
 #include "utils/definitions.cuh"
 #include "utils/logging.h"
 #include "IO/Raster.h"
-#include "tracer/Tracer.cuh"
 #include "pipeline/Pipeline.cuh"
 
 const char* const USAGE =
@@ -14,6 +13,7 @@ const char* const USAGE =
     "[-r raysPerPixel] "
     "[-t tile size (in pixels)] "
     "[-b tile buffer (in pixels)] "
+    "[-B rays bounces] "
     "[-e exaggeration]\n";
 
 bool strEqual(const char* const s1, const char* const s2){
@@ -31,11 +31,12 @@ float strToFloat(const char* const str){
 int main(int argc, char* argv[]){
     const char* inputFilename  = nullptr;
     const char* outputFilename = "output.tif";
-    uint  rayPerPoint          = 128;
-    uint  tileSize             = 300;
+    uint  rayPerPoint          = 256; // 128
+    uint  tileSize             = 2000; // 300
     uint  tileBuffer           = tileSize/3;
     bool  printInfos           = false;
     float exaggeration         = 1.0;
+    uint maxBounces            = 0;
 
     for(uint i=1; i<argc; i++){
         if(strEqual(argv[i], "-i")){
@@ -50,6 +51,8 @@ int main(int argc, char* argv[]){
             tileBuffer = strToUint(argv[++i]);
         }else if(strEqual(argv[i], "-e")){
             exaggeration = strToFloat(argv[++i]);
+        }else if(strEqual(argv[i], "-B")){
+            maxBounces = strToUint(argv[++i]);
         }else if(strEqual(argv[i], "--info")){
             printInfos = true;
         }else{
@@ -75,7 +78,7 @@ int main(int argc, char* argv[]){
             }
 
             {
-                Pipeline pipeline = Pipeline(rasterIn, rasterOut, tileSize, rayPerPoint, tileBuffer, exaggeration);
+                Pipeline pipeline = Pipeline(rasterIn, rasterOut, tileSize, rayPerPoint, tileBuffer, exaggeration, maxBounces);
                 while(pipeline.step()){}
             }
             cout() << "Writing statistics and closing file... \n";

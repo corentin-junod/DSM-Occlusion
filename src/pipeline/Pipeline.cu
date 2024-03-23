@@ -10,7 +10,7 @@ std::condition_variable cv;
 std::atomic<int> nbFinished(0);
 std::mutex mutex;
 
-Pipeline::Pipeline(Raster& rasterIn, Raster& rasterOut, const uint tileSize, const uint rayPerPoint, const uint tileBuffer, const float exaggeration): 
+Pipeline::Pipeline(Raster& rasterIn, Raster& rasterOut, const uint tileSize, const uint rayPerPoint, const uint tileBuffer, const float exaggeration, const uint maxBounces): 
 rasterIn(rasterIn), rasterOut(rasterOut){
     const uint nbTiles = (uint)std::ceil((float)rasterIn.getHeight()/tileSize) * (uint)std::ceil((float)rasterIn.getWidth()/tileSize);
 
@@ -20,7 +20,7 @@ rasterIn(rasterIn), rasterOut(rasterOut){
     }
 
     stages[0].thread = new std::thread(Pipeline::readData, &stages[0], &rasterIn, tileSize, tileBuffer);
-    stages[1].thread = new std::thread(Pipeline::initTile, &stages[1], rasterIn.getPixelSize(), exaggeration);
+    stages[1].thread = new std::thread(Pipeline::initTile, &stages[1], rasterIn.getPixelSize(), exaggeration, maxBounces);
     stages[2].thread = new std::thread(Pipeline::trace, &stages[2], rayPerPoint);
     stages[3].thread = new std::thread(Pipeline::writeData, &stages[3], &rasterOut);
 }
@@ -114,7 +114,7 @@ void Pipeline::readData(PipelineStage* stage, const Raster* rasterIn, const uint
     debug_print("> Thread 1 exit\n");
 }
 
-void Pipeline::initTile(PipelineStage* stage, const float pixelSize, const float exaggeration){
+void Pipeline::initTile(PipelineStage* stage, const float pixelSize, const float exaggeration, const uint maxBounces){
     PipelineState* state = stage->state;
     while(!state->finished){
         Pipeline::waitForNextStep(stage);
@@ -124,7 +124,7 @@ void Pipeline::initTile(PipelineStage* stage, const float pixelSize, const float
             if(state->tracer != nullptr){
                 delete state->tracer;
             }
-            state->tracer = new Tracer(*state->dataOut, pixelSize, exaggeration);
+            state->tracer = new Tracer(*state->dataOut, pixelSize, exaggeration, maxBounces);
             state->tracer->init(false);
         }else if(state->id >= 0){
             cout() << "> Tile "<< state->id+1  <<" skipped because it had no data \n";
