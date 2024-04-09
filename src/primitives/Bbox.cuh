@@ -103,17 +103,15 @@ public:
         const float rndPhi   = curand_uniform(&localRndState);
 
         Vec3<T> newDir = Vec3<T>(0,0,0);
-        newDir.setRandomInHemisphereCosineGPU(rndPhi, rndTheta);
+        newDir.setRandomInHemisphereCosine(rndPhi, rndTheta);
 
         if(tXmin > tYmin && tXmin > tZmin){
             origin = Point3<T>(origin.x + tXmin*dir.x, origin.y + tXmin*dir.y,  origin.z + tXmin*dir.z);
 
             if(dir.x > 0){
                 dir = Vec3<T>(-newDir.z, newDir.y,  newDir.x);
-                //return dir.x; // dot( -dir, (-1,0,0) )
             }else{
                 dir = Vec3<T>( newDir.z, newDir.y, -newDir.x);
-                //return -dir.x; // dot( -dir, (1,0,0) )
             }
 
         }else if(tYmin > tXmin && tYmin > tZmin){
@@ -121,10 +119,8 @@ public:
 
             if(dir.y > 0){
                 dir = Vec3<T>(newDir.x, -newDir.z,  newDir.y);
-                //return dir.y; // dot( -dir, (0,-1,0) )
             }else{
                 dir = Vec3<T>(newDir.x,  newDir.z, -newDir.y);
-                //return -dir.y; // dot( -dir, (0,1,0) )
             }
 
         }else {
@@ -132,9 +128,6 @@ public:
 
             if(dir.z > 0){
                 dir = Vec3<T>(-newDir.x, -newDir.y,  -newDir.z);
-                //return dir.z; // dot( -dir, (0,0,-1) )
-            }else{
-                //return -dir.z; // dot( -dir, (0,0,1) )
             }
         }
     }

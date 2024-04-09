@@ -19,6 +19,7 @@ void renderGPU(const Array2D<float>& data, const Array2D<Point3<float>>& points,
     const int y = threadIdx.y + blockIdx.y * blockDim.y;
     if(x>=data.width() || y>=data.height()) return;
     const uint index = y*data.width() + x;
+    const int raysPerDir = raysPerPoint / NB_SEGMENTS_DIR;
 
     curandState localRndState = rndState[index];
     curand_init(SEED, index, 0, &localRndState);
@@ -28,18 +29,16 @@ void renderGPU(const Array2D<float>& data, const Array2D<Point3<float>>& points,
     
     __syncthreads(); // Wait for each thread to initialize its part of the shared memory
 
-    const int raysPerDir = raysPerPoint / NB_SEGMENTS_DIR;
-
     float result = 0;
     for(uint i=0; i<raysPerPoint; i++){
         const float rndTheta = fdividef((i%raysPerDir) + curand_uniform(&localRndState), raysPerDir);
         const float rndPhi   = fdividef((i/raysPerDir) + curand_uniform(&localRndState), NB_SEGMENTS_DIR);
 
-        const float cosThetaOverPdf = direction.setRandomInHemisphereCosineGPU(rndPhi, rndTheta );
-        result += cosThetaOverPdf*bvh.getLighting(origin, direction, localRndState, maxBounces);
+        direction.setRandomInHemisphereCosine(rndPhi, rndTheta);
+        result += bvh.getLighting(origin, direction, localRndState, maxBounces);
         __syncthreads();
     }
-    data[index] = ONE_OVER_PI*result/raysPerPoint; // Diffuse BSDF
+    data[index] = result/raysPerPoint;
 }
 
 Tracer::Tracer(Array2D<float>& data, const float pixelSize, const float exaggeration, const uint maxBounces): 

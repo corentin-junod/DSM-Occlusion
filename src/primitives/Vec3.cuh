@@ -22,7 +22,7 @@ public:
     }
 
     __device__ __forceinline__ 
-    float setRandomInHemisphereCosineGPU(const float rndPhi, const float rndTheta){
+    float setRandomInHemisphereCosine(const float rndPhi, const float rndTheta){
         const float theta = acosf(sqrtf(rndTheta));
         const float sinTheta = sinf(theta);
         const float phi = TWO_PI*rndPhi;
