@@ -31,7 +31,7 @@ set(CMAKE_CONFIGURATION_TYPES "Debug;Release")
 
 
 if (MSVC) # If windows
-	target_compile_options(${PROJECT_NAME} PRIVATE  /W4 /O2)
+	add_compile_options(/W4 /O2)
 
     if(NOT DEFINED GDAL_INCLUDE_DIR)
         set(GDAL_INCLUDE_DIR "C:/OSGeo4W/include")
