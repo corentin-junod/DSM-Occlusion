@@ -109,7 +109,7 @@ public:
         uint bounces = 0;
         bool wasHit = false;
         float radiance = 1;
-        const float reflectivity = 1;
+        const float reflectance = 1;
 
         while(nodeIndex < maxIndex){
             const BVHNode node = bvhNodes[nodeIndex];
@@ -121,7 +121,11 @@ public:
                 nodeIndex = 0;
                 wasHit = false;
                 node.bboxLeft.bounceRay(dir, curOrigin, localRndState);
-                radiance *= reflectivity;
+                // For a diffuse BSDF, with R the reflectance, the BSDF = R/PI. 
+                // This BSDF must then be multiplied by cos(theta) according to the rendering equation.
+                // The PDF of a cosine-weighted random direction in the hemisphere is cos(theta)/PI
+                // We have : (R/PI) * cos(theta) / (cos(theta)/PI) = R, hence the multiplication by only R
+                radiance *= reflectance;
                 invDir = Vec3<float>(fdividef(1,dir.x), fdividef(1,dir.y), fdividef(1,dir.z));
             }else if(node.bboxLeft.intersects(invDir, curOrigin)){
                 nodeIndex += 1;
