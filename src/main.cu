@@ -11,10 +11,11 @@ const char* const USAGE =
     "-i inputFile "
     "[-o outputFile] "
     "[-r raysPerPixel] "
-    "[-t tile size (in pixels)] "
-    "[-b tile buffer (in pixels)] "
-    "[-B rays bounces] "
-    "[-e exaggeration]\n";
+    "[-t tileSize (in pixels)] "
+    "[-b tileBuffer (in pixels)] "
+    "[-B raysBounces] "
+    "[-e exaggeration]"
+    "[-b bias]\n";
 
 bool strEqual(const char* const s1, const char* const s2){
     return std::strncmp(s1, s2, MAX_STR_SIZE) == 0;
@@ -37,6 +38,7 @@ int main(int argc, char* argv[]){
     bool  printInfos           = false;
     float exaggeration         = 1.0;
     uint maxBounces            = 0;
+    float bias                 = 1;
 
     for(int i=1; i<argc; i++){
         if(strEqual(argv[i], "-i")){
@@ -53,6 +55,8 @@ int main(int argc, char* argv[]){
             exaggeration = strToFloat(argv[++i]);
         }else if(strEqual(argv[i], "-B")){
             maxBounces = strToUint(argv[++i]);
+        }else if(strEqual(argv[i], "--bias")){
+            bias = strToFloat(argv[++i]);
         }else if(strEqual(argv[i], "--info")){
             printInfos = true;
         }else{
@@ -78,7 +82,7 @@ int main(int argc, char* argv[]){
             }
 
             {
-                Pipeline pipeline = Pipeline(rasterIn, rasterOut, tileSize, rayPerPoint, tileBuffer, exaggeration, maxBounces);
+                Pipeline pipeline = Pipeline(rasterIn, rasterOut, tileSize, rayPerPoint, tileBuffer, exaggeration, maxBounces, bias);
                 while(pipeline.step()){}
             }
             cout() << "Writing statistics and closing file... \n";

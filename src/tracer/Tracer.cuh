@@ -9,7 +9,7 @@ public:
     ~Tracer();
 
     void init(const bool prinInfos);
-    void trace(const bool useGPU, const uint raysPerPoint);
+    void trace(const bool useGPU, const uint raysPerPoint, const float bias);
 
 private:
     const float pixelSize;

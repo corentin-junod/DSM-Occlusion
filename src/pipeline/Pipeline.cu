@@ -10,7 +10,7 @@ std::condition_variable cv;
 std::atomic<int> nbFinished(0);
 std::mutex mutex;
 
-Pipeline::Pipeline(Raster& rasterIn, Raster& rasterOut, const uint tileSize, const uint rayPerPoint, const uint tileBuffer, const float exaggeration, const uint maxBounces): 
+Pipeline::Pipeline(Raster& rasterIn, Raster& rasterOut, const uint tileSize, const uint rayPerPoint, const uint tileBuffer, const float exaggeration, const uint maxBounces, const float bias): 
 rasterIn(rasterIn), rasterOut(rasterOut){
     const uint nbTiles = (uint)std::ceil((float)rasterIn.getHeight()/tileSize) * (uint)std::ceil((float)rasterIn.getWidth()/tileSize);
 
@@ -21,7 +21,7 @@ rasterIn(rasterIn), rasterOut(rasterOut){
 
     stages[0].thread = new std::thread(Pipeline::readData, &stages[0], &rasterIn, tileSize, tileBuffer);
     stages[1].thread = new std::thread(Pipeline::initTile, &stages[1], rasterIn.getPixelSize(), exaggeration, maxBounces);
-    stages[2].thread = new std::thread(Pipeline::trace, &stages[2], rayPerPoint);
+    stages[2].thread = new std::thread(Pipeline::trace, &stages[2], rayPerPoint, bias);
     stages[3].thread = new std::thread(Pipeline::writeData, &stages[3], &rasterOut);
 }
 
@@ -136,14 +136,14 @@ void Pipeline::initTile(PipelineStage* stage, const float pixelSize, const float
     debug_print("> Thread 2 exit\n");
 }
 
-void Pipeline::trace(PipelineStage* stage, const uint rayPerPoint){
+void Pipeline::trace(PipelineStage* stage, const uint rayPerPoint, const float bias){
     PipelineState* state = stage->state;
     while(!state->finished){
         Pipeline::waitForNextStep(stage);
         state = stage->state;
         if(state->hasData && state->id >= 0){
             debug_print("> Tracing tile " + std::to_string(state->id+1) + "...\n");
-            state->tracer->trace(true, rayPerPoint);
+            state->tracer->trace(true, rayPerPoint, bias);
         }
     }
     debug_print("> Thread 3 finished...\n");

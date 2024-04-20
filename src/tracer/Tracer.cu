@@ -14,7 +14,7 @@ constexpr uint SEED = 1423; // For reproducible runs, can be any value
 constexpr uint BLOCK_DIM_SIZE = 8;
 
 __global__
-void renderGPU(const Array2D<float>& data, const Array2D<Point3<float>>& points, const BVH& bvh, const uint raysPerPoint, const uint maxBounces, curandState* const rndState){    
+void renderGPU(const Array2D<float>& data, const Array2D<Point3<float>>& points, const BVH& bvh, const uint raysPerPoint, const uint maxBounces, curandState* const rndState, const float bias){    
     const int x = threadIdx.x + blockIdx.x * blockDim.x;
     const int y = threadIdx.y + blockIdx.y * blockDim.y;
     if(x>=data.width() || y>=data.height()) return;
@@ -31,7 +31,7 @@ void renderGPU(const Array2D<float>& data, const Array2D<Point3<float>>& points,
 
     float result = 0;
     for(uint i=0; i<raysPerPoint; i++){
-        const float rndTheta = fdividef((i%raysPerDir) + curand_uniform(&localRndState), raysPerDir);
+        const float rndTheta = powf(fdividef((i%raysPerDir) + curand_uniform(&localRndState), raysPerDir), bias);
         const float rndPhi   = fdividef((i/raysPerDir) + curand_uniform(&localRndState), NB_SEGMENTS_DIR);
 
         direction.setRandomInHemisphereCosine(rndPhi, rndTheta);
@@ -68,7 +68,7 @@ void Tracer::init(const bool prinInfos){
     bvh.freeAfterBuild();
 }
 
-void Tracer::trace(const bool useGPU, const uint raysPerPoint){
+void Tracer::trace(const bool useGPU, const uint raysPerPoint, const float bias){
     if(useGPU){
         const dim3 blockDims(BLOCK_DIM_SIZE, BLOCK_DIM_SIZE);
         const dim3 gridDims(data.width()/blockDims.x+1, data.height()/blockDims.y+1);
@@ -76,7 +76,7 @@ void Tracer::trace(const bool useGPU, const uint raysPerPoint){
         Array2D<Point3<float>>* pointsGPU = points.toGPU();
         BVH* bvhGPU = bvh.toGPU();
         Array2D<float>* dataGPU = data.toGPU();
-        renderGPU<<<gridDims, blockDims>>>(*dataGPU, *pointsGPU, *bvhGPU, raysPerPoint, maxBounces, randomState);
+        renderGPU<<<gridDims, blockDims>>>(*dataGPU, *pointsGPU, *bvhGPU, raysPerPoint, maxBounces, randomState, bias);
         syncGPU();
         data.fromGPU(dataGPU);
         bvh.fromGPU(bvhGPU);
