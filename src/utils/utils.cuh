@@ -1,6 +1,7 @@
 #pragma once
 
 #include "definitions.cuh"
+#include <curand_kernel.h>
 
 #define checkError(val) check_error((val), #val, __FILE__, __LINE__)
 

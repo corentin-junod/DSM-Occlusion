@@ -22,6 +22,7 @@ struct PipelineState {
     int y = 0;
     bool hasData  = false;
     bool finished = false;
+    Array3D<byte>* dataOutShadowMap = nullptr;
 };
 
 struct PipelineStage {
@@ -33,7 +34,7 @@ struct PipelineStage {
 
 class Pipeline{
 public:
-    Pipeline(Raster& rasterIn, Raster& rasterOut, const uint tileSize, const uint rayPerPoint, const uint tileBuffer, const float exaggeration, const uint maxBounces, const float bias);
+    Pipeline(Raster& rasterIn, Raster& rasterOut, const uint tileSize, const uint rayPerPoint, const uint tileBuffer, const float exaggeration, const uint maxBounces, const float bias, const bool isShadowMap, const uint sm_rays_per_dir, const uint sm_nb_dirs);
     ~Pipeline();
     bool step();
 
@@ -43,8 +44,8 @@ private:
     Raster& rasterOut;
 
     static void waitForNextStep(PipelineStage* stage);
-    static void readData(PipelineStage* stage, const Raster* rasterIn, const uint tileSize, const uint tileBuffer);
+    static void readData(PipelineStage* stage, const Raster* rasterIn, const uint tileSize, const uint tileBuffer, const bool isShadowMap, const uint sm_nb_dirs);
     static void initTile(PipelineStage* stage, const float pixelSize, const float exaggeration=1.0, const uint maxBounces=0);
-    static void trace(PipelineStage* stage, const uint rayPerPoint, const float bias);
-    static void writeData(PipelineStage* stage, const Raster* const rasterOut);
+    static void trace(PipelineStage* stage, const uint rayPerPoint, const float bias, const bool isShadowMap, const uint sm_rays_per_dir, const uint sm_nb_dirs);
+    static void writeData(PipelineStage* stage, const Raster* const rasterOut, const bool isShadowMap, const uint sm_nb_dirs);
 };

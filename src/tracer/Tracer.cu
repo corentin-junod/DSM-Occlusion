@@ -14,7 +14,7 @@ constexpr uint SEED = 1423; // For reproducible runs, can be any value
 constexpr uint BLOCK_DIM_SIZE = 8;
 
 __global__
-void renderGPU(const Array2D<float>& data, const Array2D<Point3<float>>& points, const BVH& bvh, const uint raysPerPoint, const uint maxBounces, curandState* const rndState, const float bias){    
+void renderGpu(const Array2D<float>& data, const Array2D<Point3<float>>& points, const BVH& bvh, const uint raysPerPoint, const uint maxBounces, curandState* const rndState, const float bias){    
     const int x = threadIdx.x + blockIdx.x * blockDim.x;
     const int y = threadIdx.y + blockIdx.y * blockDim.y;
     if(x>=data.width() || y>=data.height()) return;
@@ -35,16 +35,43 @@ void renderGPU(const Array2D<float>& data, const Array2D<Point3<float>>& points,
         const float rndPhi   = fdividef((i/raysPerDir) + curand_uniform(&localRndState), NB_SEGMENTS_DIR);
 
         direction.setRandomInHemisphereCosine(rndPhi, rndTheta);
-        result += bvh.getLighting(origin, direction, localRndState, maxBounces);
+        result += bvh.getLighting(origin, direction, &localRndState, maxBounces);
         __syncthreads();
     }
     data[index] = result/raysPerPoint;
 }
 
-Tracer::Tracer(Array2D<float>& data, const float pixelSize, const float exaggeration, const uint maxBounces): 
-    data(data), pixelSize(pixelSize), exaggeration(exaggeration), maxBounces(maxBounces),
-    points(Array2D<Point3<float>>(data.width(), data.height())), 
-    bvh(BVH(data.width()*data.height(), pixelSize)){}
+__global__
+void renderGpuShadowMap(const Array3D<byte>& data, const Array2D<Point3<float>>& points, const BVH& bvh, const uint rays_per_dir, const uint nb_dirs){
+    const int x = threadIdx.x + blockIdx.x * blockDim.x;
+    const int y = threadIdx.y + blockIdx.y * blockDim.y;
+    if(x>=data.width() || y>=data.height()) return;
+    const uint index = y*data.width() + x;
+
+    Vec3<float> direction = Vec3<float>(0.0, 0.0, 0.0);
+    const Point3<float> origin(points[index].x, points[index].y, points[index].z);
+
+    for(uint dir=0; dir<nb_dirs; dir++){
+        for(uint elevation=1; elevation<rays_per_dir; elevation++){
+            const float phi = dir*(TWO_PI/nb_dirs);
+            const float theta = (PI / 2.0)-elevation*((PI/2.0)/rays_per_dir); //TODO We can improve that by considering 0° is always occluded and 90° is always not occluded
+
+            direction.setFromAngles(phi, theta);
+            if(bvh.getLighting(origin, direction) > 0){
+                data.at(x, y, dir) = elevation-1;
+                break;
+            }else if(elevation == rays_per_dir-1){
+                data.at(x, y, dir) = elevation;
+                break;
+            }
+        }
+    }
+}
+
+Tracer::Tracer(const Array2D<float>& inputData, const float pixelSize, const float exaggeration, const uint maxBounces): 
+    inputData(inputData), pixelSize(pixelSize), exaggeration(exaggeration), maxBounces(maxBounces),
+    points(Array2D<Point3<float>>(inputData.width(), inputData.height())), 
+    bvh(BVH(inputData.width()*inputData.height(), pixelSize)){}
 
 Tracer::~Tracer(){
     cudaFree(randomState);
@@ -52,13 +79,13 @@ Tracer::~Tracer(){
 }
 
 void Tracer::init(const bool prinInfos){
-    randomState = (curandState*) allocGPU(sizeof(curandState), data.width()*data.height());
-    Array2D<Point3<float>*> pointsPointers(data.width(), data.height());
+    randomState = (curandState*) allocGPU(sizeof(curandState), inputData.width()*inputData.height());
+    Array2D<Point3<float>*> pointsPointers(inputData.width(), inputData.height());
 
-    for(uint y=0; y<data.height(); y++){
-        for(uint x=0; x<data.width(); x++){
-            const uint index = y*data.width()+x;
-            points[index] = Point3<float>(x*pixelSize,y*pixelSize, data[index]*exaggeration);
+    for(uint y=0; y<inputData.height(); y++){
+        for(uint x=0; x<inputData.width(); x++){
+            const uint index = y*inputData.width()+x;
+            points[index] = Point3<float>(x*pixelSize,y*pixelSize, inputData[index]*exaggeration);
             pointsPointers[index] = &(points[index]);
         }
     }
@@ -68,48 +95,35 @@ void Tracer::init(const bool prinInfos){
     bvh.freeAfterBuild();
 }
 
-void Tracer::trace(const bool useGPU, const uint raysPerPoint, const float bias){
+void Tracer::trace(Array2D<float>& outputData, const bool useGPU, const uint raysPerPoint, const float bias){
     if(useGPU){
         const dim3 blockDims(BLOCK_DIM_SIZE, BLOCK_DIM_SIZE);
-        const dim3 gridDims(data.width()/blockDims.x+1, data.height()/blockDims.y+1);
+        const dim3 gridDims(outputData.width()/blockDims.x+1, outputData.height()/blockDims.y+1);
 
         Array2D<Point3<float>>* pointsGPU = points.toGPU();
         BVH* bvhGPU = bvh.toGPU();
-        Array2D<float>* dataGPU = data.toGPU();
-        renderGPU<<<gridDims, blockDims>>>(*dataGPU, *pointsGPU, *bvhGPU, raysPerPoint, maxBounces, randomState, bias);
+        Array2D<float>* dataGPU = outputData.toGPU();
+        renderGpu<<<gridDims, blockDims>>>(*dataGPU, *pointsGPU, *bvhGPU, raysPerPoint, maxBounces, randomState, bias);
         syncGPU();
-        data.fromGPU(dataGPU);
+        outputData.fromGPU(dataGPU);
         bvh.fromGPU(bvhGPU);
         points.fromGPU(pointsGPU);
-    }else{
-        /*
-        const uint traceBufferSizePerThread = std::log2(bvh.size());
-        int* traceBuffer = (int*) allocMemory(width*height*traceBufferSizePerThread, sizeof(int), useGPU);
-        float progress = 0;
-        float nextProgress = 0.1;
-        #pragma omp parallel for
-        for(int y=0; y<height; y++){
-            for(int x=0; x<width; x++){
-                //render(data, y*width+x, raysPerPoint, points, *bvh, traceBuffer, traceBufferSizePerThread);
-                const Point3<float> origin  = points[index];
-                Vec3<float> direction = Vec3<float>(0,0,0);
-                float result = 0;
-                for(uint i=0; i<raysPerPoint; i++){
-                    const uint segmentNumber = i%NB_STRATIFIED_DIRS;
-                    const float rnd1 = uniform0_1(genEngine);
-                    const float rnd2 = uniform0_1(genEngine);
-                    const float cosThetaOverPdf = direction.setRandomInHemisphereCosineHost( NB_STRATIFIED_DIRS, segmentNumber, rnd1, rnd2);
-                    result += cosThetaOverPdf*bvh.getLighting(origin, direction, &traceBuffer[index*traceBufferSize]);
-                }
-                data[index] = result/(PI*(float)raysPerPoint); // Diffuse BSDF : f = 1/PI
-            }
-
-            #pragma omp atomic
-            progress++;
-            if(progress >= nextProgress*height){
-                nextProgress += 0.1;
-            }
-        }
-        freeMemory(traceBuffer, useGPU);*/
     }
 }
+
+void Tracer::traceShadowMap(Array3D<byte>& outputData, const bool useGPU, const uint rays_per_dir, const uint nb_dirs){
+    if(useGPU){
+        const dim3 blockDims(BLOCK_DIM_SIZE, BLOCK_DIM_SIZE);
+        const dim3 gridDims(outputData.width()/blockDims.x+1, outputData.height()/blockDims.y+1);
+
+        Array2D<Point3<float>>* pointsGPU = points.toGPU();
+        BVH* bvhGPU = bvh.toGPU();
+        Array3D<byte>* dataGPU = outputData.toGPU();
+        renderGpuShadowMap<<<gridDims, blockDims>>>(*dataGPU, *pointsGPU, *bvhGPU, rays_per_dir, nb_dirs);
+        syncGPU();
+        outputData.fromGPU(dataGPU);
+        bvh.fromGPU(bvhGPU);
+        points.fromGPU(pointsGPU);
+    }
+}
+

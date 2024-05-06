@@ -39,6 +39,10 @@ int main(int argc, char* argv[]){
     float exaggeration         = 1.0;
     uint maxBounces            = 0;
     float bias                 = 1;
+    bool isShadowMap           = false;
+    float scale = 1;
+    uint sm_rays_per_dir = 16;
+    uint sm_nb_dirs = 100;
 
     for(int i=1; i<argc; i++){
         if(strEqual(argv[i], "-i")){
@@ -57,6 +61,9 @@ int main(int argc, char* argv[]){
             maxBounces = strToUint(argv[++i]);
         }else if(strEqual(argv[i], "--bias")){
             bias = strToFloat(argv[++i]);
+        }else if(strEqual(argv[i], "--shadow-map")){
+            isShadowMap = true;
+            scale = 0.5;
         }else if(strEqual(argv[i], "--info")){
             printInfos = true;
         }else{
@@ -74,7 +81,7 @@ int main(int argc, char* argv[]){
     {
         try {
             Raster rasterIn  = Raster(inputFilename);
-            Raster rasterOut = Raster(outputFilename, &rasterIn);
+            Raster rasterOut = Raster(outputFilename, &rasterIn, isShadowMap, scale, sm_nb_dirs);
 
             if(printInfos){
                 rasterIn.printInfos();
@@ -82,7 +89,7 @@ int main(int argc, char* argv[]){
             }
 
             {
-                Pipeline pipeline = Pipeline(rasterIn, rasterOut, tileSize, rayPerPoint, tileBuffer, exaggeration, maxBounces, bias);
+                Pipeline pipeline = Pipeline(rasterIn, rasterOut, tileSize, rayPerPoint, tileBuffer, exaggeration, maxBounces, bias, isShadowMap, sm_rays_per_dir, sm_nb_dirs);
                 while(pipeline.step()){}
             }
             cout() << "Writing statistics and closing file... \n";

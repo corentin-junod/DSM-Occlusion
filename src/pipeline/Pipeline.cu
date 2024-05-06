@@ -10,7 +10,7 @@ std::condition_variable cv;
 std::atomic<int> nbFinished(0);
 std::mutex mutex;
 
-Pipeline::Pipeline(Raster& rasterIn, Raster& rasterOut, const uint tileSize, const uint rayPerPoint, const uint tileBuffer, const float exaggeration, const uint maxBounces, const float bias): 
+Pipeline::Pipeline(Raster& rasterIn, Raster& rasterOut, const uint tileSize, const uint rayPerPoint, const uint tileBuffer, const float exaggeration, const uint maxBounces, const float bias, const bool isShadowMap, const uint sm_rays_per_dir, const uint sm_nb_dirs):
 rasterIn(rasterIn), rasterOut(rasterOut){
     const uint nbTiles = (uint)std::ceil((float)rasterIn.getHeight()/tileSize) * (uint)std::ceil((float)rasterIn.getWidth()/tileSize);
 
@@ -19,10 +19,10 @@ rasterIn(rasterIn), rasterOut(rasterOut){
         stages[i].id = i;
     }
 
-    stages[0].thread = new std::thread(Pipeline::readData, &stages[0], &rasterIn, tileSize, tileBuffer);
-    stages[1].thread = new std::thread(Pipeline::initTile, &stages[1], rasterIn.getPixelSize(), exaggeration, maxBounces);
-    stages[2].thread = new std::thread(Pipeline::trace, &stages[2], rayPerPoint, bias);
-    stages[3].thread = new std::thread(Pipeline::writeData, &stages[3], &rasterOut);
+    stages[0].thread = new std::thread(Pipeline::readData,  &stages[0], &rasterIn, tileSize, tileBuffer, isShadowMap, sm_nb_dirs);
+    stages[1].thread = new std::thread(Pipeline::initTile,  &stages[1], rasterIn.getPixelSize(), exaggeration, maxBounces);
+    stages[2].thread = new std::thread(Pipeline::trace,     &stages[2], rayPerPoint, bias, isShadowMap, sm_rays_per_dir, sm_nb_dirs);
+    stages[3].thread = new std::thread(Pipeline::writeData, &stages[3], &rasterOut, isShadowMap, sm_nb_dirs);
 }
 
 Pipeline::~Pipeline(){
@@ -62,8 +62,7 @@ void Pipeline::waitForNextStep(PipelineStage* stage){
     stage->ready = false;
 }
 
-
-void Pipeline::readData(PipelineStage* stage, const Raster* rasterIn, const uint tileSize, const uint tileBuffer){
+void Pipeline::readData(PipelineStage* stage, const Raster* rasterIn, const uint tileSize, const uint tileBuffer, const bool isShadowMap, const uint sm_nb_dirs){
     const float noDataValue = rasterIn->getNoDataValue();
     const uint nbTiles = (uint)std::ceil((float)rasterIn->getHeight()/tileSize) * (uint)std::ceil((float)rasterIn->getWidth()/tileSize);
     uint nbTileProcessed = 0;
@@ -87,19 +86,24 @@ void Pipeline::readData(PipelineStage* stage, const Raster* rasterIn, const uint
             if(state->dataIn != nullptr){
                 delete state->dataIn;
             }
-            if(state->dataOut != nullptr){
-                delete state->dataOut; 
-            }
             state->dataIn = new Array2D<float>(state->extent.xMax-state->extent.xMin, state->extent.yMax-state->extent.yMin);
-            state->dataOut = new Array2D<float>(state->extent.xMax-state->extent.xMin, state->extent.yMax-state->extent.yMin);
-
             rasterIn->readData(state->dataIn->begin(), state->extent.xMin, state->extent.yMin, state->extent.xMax-state->extent.xMin, state->extent.yMax-state->extent.yMin);
-
             for(uint i=0; i<state->dataIn->size(); i++){
                 if((*state->dataIn)[i] != noDataValue){
                     state->hasData = true;
                 }
-                (*state->dataOut)[i] = (*state->dataIn)[i];
+            }
+
+            if(isShadowMap){
+                if (state->dataOutShadowMap != nullptr) {
+                    delete state->dataOutShadowMap;
+                }
+                state->dataOutShadowMap = new Array3D<byte>(state->extent.xMax-state->extent.xMin, state->extent.yMax-state->extent.yMin, sm_nb_dirs);
+            }else{ 
+                if(state->dataOut != nullptr){
+                    delete state->dataOut; 
+                }
+                state->dataOut = new Array2D<float>(state->extent.xMax-state->extent.xMin, state->extent.yMax-state->extent.yMin);
             }
 
             nbTileProcessed++;
@@ -124,7 +128,7 @@ void Pipeline::initTile(PipelineStage* stage, const float pixelSize, const float
             if(state->tracer != nullptr){
                 delete state->tracer;
             }
-            state->tracer = new Tracer(*state->dataOut, pixelSize, exaggeration, maxBounces);
+            state->tracer = new Tracer(*state->dataIn, pixelSize, exaggeration, maxBounces);
             state->tracer->init(false);
         }else if(state->id >= 0){
             cout() << "> Tile "<< state->id+1  <<" skipped because it had no data \n";
@@ -136,14 +140,18 @@ void Pipeline::initTile(PipelineStage* stage, const float pixelSize, const float
     debug_print("> Thread 2 exit\n");
 }
 
-void Pipeline::trace(PipelineStage* stage, const uint rayPerPoint, const float bias){
+void Pipeline::trace(PipelineStage* stage, const uint rayPerPoint, const float bias, const bool isShadowMap, const uint sm_rays_per_dir, const uint sm_nb_dirs){
     PipelineState* state = stage->state;
     while(!state->finished){
         Pipeline::waitForNextStep(stage);
         state = stage->state;
         if(state->hasData && state->id >= 0){
             debug_print("> Tracing tile " + std::to_string(state->id+1) + "...\n");
-            state->tracer->trace(true, rayPerPoint, bias);
+            if(isShadowMap){
+                state->tracer->traceShadowMap(*state->dataOutShadowMap, true, sm_rays_per_dir, sm_nb_dirs);
+            }else{
+                state->tracer->trace(*state->dataOut, true, rayPerPoint, bias);
+            }
         }
     }
     debug_print("> Thread 3 finished...\n");
@@ -151,7 +159,7 @@ void Pipeline::trace(PipelineStage* stage, const uint rayPerPoint, const float b
     debug_print("> Thread 3 exit\n");
 }
 
-void Pipeline::writeData(PipelineStage* stage, const Raster* const rasterOut){
+void Pipeline::writeData(PipelineStage* stage, const Raster* const rasterOut, const bool isShadowMap, const uint sm_nb_dirs){
     PipelineState* state = stage->state;
     while(!state->finished){
         Pipeline::waitForNextStep(stage);
@@ -159,17 +167,49 @@ void Pipeline::writeData(PipelineStage* stage, const Raster* const rasterOut){
         if(state->hasData && state->id >= 0){
             debug_print("> Writing tile " + std::to_string(state->id+1) + "...\n");
             const float noDataValue = rasterOut->getNoDataValue();
-            Array2D<float> dataCropped(state->width, state->height);
-            uint i=0, j=0;
-            for(int curY=state->extent.yMin; curY < state->extent.yMax; curY++){
-                for(int curX=state->extent.xMin; curX < state->extent.xMax; curX++){
-                    if(curY>=state->y && curY < state->y+(int)state->height && curX>=state->x && curX < state->x+(int)state->width){
-                        dataCropped[i++] = ((*state->dataIn)[j] == noDataValue ? noDataValue : (*state->dataOut)[j]);
+
+            if(isShadowMap){
+                Array3D<byte> dataCropped(state->width, state->height, state->dataOutShadowMap->depth());
+                uint i=0, j=0, crop_x=0, crop_y=0;
+                for(int curY=state->extent.yMin; curY < state->extent.yMax; curY++){
+                    for(int curX=state->extent.xMin; curX < state->extent.xMax; curX++){
+                        if(curY>=state->y && curY < state->y+(int)state->height && curX>=state->x && curX < state->x+(int)state->width){
+                            
+                            if((*state->dataIn)[j] == noDataValue){
+                                for(uint curDir=0; curDir < sm_nb_dirs; curDir++){
+                                    dataCropped.set(crop_x, crop_y, curDir, noDataValue);
+                                }
+                            }else{
+                                for(uint curDir=0; curDir < sm_nb_dirs; curDir++){
+                                    const byte curValue = (*state->dataOutShadowMap).at(curX- state->extent.xMin, curY- state->extent.yMin, curDir);
+                                    dataCropped.set(crop_x, crop_y, curDir, curValue);
+                                }
+                            }
+
+                            crop_x++;
+                            if (crop_x == state->width) {
+                                crop_x = 0;
+                                crop_y++;
+                            }
+                        }
+                        j++;
                     }
-                    j++;
                 }
+                rasterOut->writeDataShadowMap(dataCropped, state->x, state->y, state->width, state->height);
+
+            }else{
+                Array2D<float> dataCropped(state->width, state->height);
+                uint i=0, j=0;
+                for(int curY=state->extent.yMin; curY < state->extent.yMax; curY++){
+                    for(int curX=state->extent.xMin; curX < state->extent.xMax; curX++){
+                        if(curY>=state->y && curY < state->y+(int)state->height && curX>=state->x && curX < state->x+(int)state->width){
+                            dataCropped[i++] = (*state->dataIn)[j] == noDataValue ? noDataValue : (*state->dataOut)[j];
+                        }
+                        j++;
+                    }
+                }
+                rasterOut->writeData(dataCropped.begin(), state->x, state->y, state->width, state->height);
             }
-            rasterOut->writeData(dataCropped.begin(), state->x, state->y, state->width, state->height);
         }
     }
     debug_print("> Thread 4 finished...\n> Thread 4 exit\n");

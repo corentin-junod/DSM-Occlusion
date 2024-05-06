@@ -32,6 +32,14 @@ public:
         return PI; // pdf = cosTheta / PI, so cosTheta / pdf = PI
     }
 
+     __device__ __forceinline__ 
+    void setFromAngles(const float phi, const float theta){
+        const float sinTheta = sinf(theta);
+        x = sinTheta*cosf(phi);
+        y = sinTheta*sinf(phi);
+        z = cosf(theta);
+    }
+
     __host__ 
     float setRandomInHemisphereUniform(const byte nbSegments, const byte segmentNumber, const float rndNumber1, const float rndNumber2){
         const float segmentSize = 2.0*PI/nbSegments;

@@ -4,7 +4,7 @@
 #include <iostream>
 #include <stdexcept>
 
-Raster::Raster(const char* const filename, const Raster* const copyFrom) {
+Raster::Raster(const char* const filename, const Raster* const copyFrom, const bool isShadowMap, const float scale, const uint sm_nb_bands) : scale(scale) {
     CPLPushErrorHandler(CPLQuietErrorHandler);
     GDALAllRegister();
     if(copyFrom == nullptr){
@@ -12,6 +12,18 @@ Raster::Raster(const char* const filename, const Raster* const copyFrom) {
         if(dataset == nullptr){
             throw std::runtime_error("Unable to open input file : " + std::string(filename));
         }
+    }else if(isShadowMap){
+        const uint xSize = copyFrom->dataset->GetRasterBand(1)->GetXSize()*scale;
+        const uint ySize = copyFrom->dataset->GetRasterBand(1)->GetYSize()*scale;
+        dataset = copyFrom->dataset->GetDriver()->Create(filename, xSize, ySize, sm_nb_bands, GDT_Byte, nullptr);
+        dataset->SetSpatialRef(copyFrom->dataset->GetSpatialRef());
+        dataset->SetProjection(copyFrom->dataset->GetProjectionRef());
+        double geoTransform[6];
+        copyFrom->dataset->GetGeoTransform(geoTransform);
+        geoTransform[1] /= scale;
+        geoTransform[5] /= scale;
+        dataset->SetGeoTransform(geoTransform);
+        dataset->SetMetadata(copyFrom->dataset->GetMetadata());
     }else{
         dataset = copyFrom->dataset->GetDriver()->CreateCopy(filename, copyFrom->dataset, false, NULL, NULL, NULL ); 
     }
@@ -46,6 +58,15 @@ void Raster::writeData(float* data, const uint x, const uint y, const uint width
     const CPLErr result = dataBand->RasterIO(GF_Write, x, y, width, height, data, width, height, GDT_Float32, 0, 0);
     if(result == CE_Failure){
         std::cout << "Error during file writing";
+    }
+}
+
+void Raster::writeDataShadowMap(Array3D<byte>& data, const uint x, const uint y, const uint width, const uint height) const {
+    for(uint band=0; band<data.depth(); band++){
+        const CPLErr result = dataset->GetRasterBand(band + 1)->RasterIO(GF_Write, x*scale, y*scale, width*scale, height*scale, data.atDepth(band), width, height, GDT_Byte, 0, 0);
+        if(result == CE_Failure){
+            std::cout << "Error during file writing";
+        }
     }
 }
 

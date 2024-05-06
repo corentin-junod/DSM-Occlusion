@@ -101,7 +101,7 @@ public:
         freeGPU(replica);
     }
 
-    __device__ float getLighting(const Point3<float>& origin, Vec3<float>& dir, curandState& localRndState, const uint maxBounces=0) const {
+    __device__ float getLighting(const Point3<float>& origin, Vec3<float>& dir, curandState* localRndState=nullptr, const uint maxBounces=0) const {
         const uint maxIndex = nbNodes;
         Vec3<float> invDir(fdividef(1,dir.x), fdividef(1,dir.y), fdividef(1,dir.z));
         Point3<float> curOrigin = Point3<float>(origin.x, origin.y, origin.z);
@@ -114,13 +114,13 @@ public:
         while(nodeIndex < maxIndex){
             const BVHNode node = bvhNodes[nodeIndex];
             if(node.isLeafe && wasHit){
-                if(bounces == maxBounces){
+                if(bounces == maxBounces || localRndState == nullptr){
                     return 0;
                 }
                 bounces++;
                 nodeIndex = 0;
                 wasHit = false;
-                node.bboxLeft.bounceRay(dir, curOrigin, localRndState);
+                node.bboxLeft.bounceRay(dir, curOrigin, *localRndState);
                 // For a diffuse BSDF, with R the reflectance, the BSDF = R/PI. 
                 // This BSDF must then be multiplied by cos(theta) according to the rendering equation.
                 // The PDF of a cosine-weighted random direction in the hemisphere is cos(theta)/PI
