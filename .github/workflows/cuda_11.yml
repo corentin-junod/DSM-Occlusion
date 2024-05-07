@@ -37,10 +37,10 @@ jobs:
     - name: Retrieve & Install CUDA Toolkit
       uses: Jimver/cuda-toolkit@v0.2.14
       id: cuda-toolkit
-      cuda: '11.7.0'
       with:
         use-github-cache: false
         use-local-cache: false
+        cuda: '11.7.0'
 
     - name: Retrieve & Install GDAL
       shell: bash
