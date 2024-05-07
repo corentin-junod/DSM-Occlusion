@@ -69,6 +69,12 @@ This parameter scales all input values by the given factor. A value higher than 
 The maximum number of times a ray can bounce on the geometry before the ray is considered not reaching the sky.
 The higher the value, the more accurate and luminous the result will be. *Increase this value will drastically increase the processing time!*. A value of 0 (the default) leads to the same result as computing the sky view factor.
 
+- ***--bias***
+*optional parameter*, default value : 1.0
+Bias applied to rays distribution. A value of 1 means no bias, and the rays are uniformly sampled in all directions.
+Values greater than 1 bias rays toward the horizon, revealing small terrain details but darkening already occluded areas.
+Values smaller than 1 bias rays toward the zenith, brightening dark areas and discarding terrain details.
+
 - ***--info***  
 *optional parameter*  
 Prints information about the GDAL driver and the graphic card. This is purely informative. 
