@@ -4,7 +4,11 @@
 #include <iostream>
 #include <stdexcept>
 
-Raster::Raster(const char* const filename, const Raster* const copyFrom, const bool isShadowMap, const float scale, const uint sm_nb_bands) : scale(scale) {
+uint SM_DIR_PER_BAND = 3;
+uint SM_ELEVATION_SIZE = 5;
+GDALDataType SM_BAND_TYPE = GDT_UInt32;
+
+Raster::Raster(const char* const filename, const Raster* const copyFrom, const bool isShadowMap, const float scale, const uint sm_nb_dirs) : scale(scale) {
     CPLPushErrorHandler(CPLQuietErrorHandler);
     GDALAllRegister();
     if(copyFrom == nullptr){
@@ -15,15 +19,15 @@ Raster::Raster(const char* const filename, const Raster* const copyFrom, const b
     }else if(isShadowMap){
         const uint xSize = copyFrom->dataset->GetRasterBand(1)->GetXSize()*scale;
         const uint ySize = copyFrom->dataset->GetRasterBand(1)->GetYSize()*scale;
-        dataset = copyFrom->dataset->GetDriver()->Create(filename, xSize, ySize, sm_nb_bands, GDT_Byte, nullptr);
+        dataset = copyFrom->dataset->GetDriver()->Create(filename, xSize, ySize, std::ceil(sm_nb_dirs/SM_DIR_PER_BAND), SM_BAND_TYPE, nullptr);
         dataset->SetSpatialRef(copyFrom->dataset->GetSpatialRef());
         dataset->SetProjection(copyFrom->dataset->GetProjectionRef());
+        dataset->SetMetadata(copyFrom->dataset->GetMetadata());
         double geoTransform[6];
         copyFrom->dataset->GetGeoTransform(geoTransform);
         geoTransform[1] /= scale;
         geoTransform[5] /= scale;
         dataset->SetGeoTransform(geoTransform);
-        dataset->SetMetadata(copyFrom->dataset->GetMetadata());
     }else{
         dataset = copyFrom->dataset->GetDriver()->CreateCopy(filename, copyFrom->dataset, false, NULL, NULL, NULL ); 
     }
@@ -61,11 +65,36 @@ void Raster::writeData(float* data, const uint x, const uint y, const uint width
     }
 }
 
-void Raster::writeDataShadowMap(Array3D<byte>& data, const uint x, const uint y, const uint width, const uint height) const {
+void Raster::writeDataShadowMap(Array3D<byte>& data, const uint x0, const uint y0, const uint width, const uint height) const {
+    Array2D<uint> resultArray = Array2D<uint>(width, height);
+    for (uint y = 0; y < height; y++) {
+        for (uint x = 0; x < width; x++) {
+            resultArray.at(x, y) = 0;
+        }
+    }
+    uint rasterBand = 1;
+    uint currentShift = 0;
     for(uint band=0; band<data.depth(); band++){
-        const CPLErr result = dataset->GetRasterBand(band + 1)->RasterIO(GF_Write, x*scale, y*scale, width*scale, height*scale, data.atDepth(band), width, height, GDT_Byte, 0, 0);
-        if(result == CE_Failure){
-            std::cout << "Error during file writing";
+        for (uint y = 0; y < height; y++) {
+            for (uint x = 0; x < width; x++) {
+                resultArray.at(x, y) = resultArray.at(x, y) + (data.atDepth(band)[x + width * y] << (SM_ELEVATION_SIZE * currentShift));
+            }
+        }
+
+        currentShift++;
+
+        if (currentShift == SM_DIR_PER_BAND || band == data.depth() - 1) {
+            const CPLErr result = dataset->GetRasterBand(rasterBand)->RasterIO(GF_Write, x0*scale, y0*scale, width*scale, height*scale, resultArray.begin(), width, height, SM_BAND_TYPE, 0, 0);
+            if (result == CE_Failure) {
+                std::cout << "Error during file writing";
+            }
+            for (uint y = 0; y < height; y++) {
+                for (uint x = 0; x < width; x++) {
+                    resultArray.at(x, y) = 0;
+                }
+            }
+            currentShift = 0;
+            rasterBand++;
         }
     }
 }

@@ -34,15 +34,15 @@ int main(int argc, char* argv[]){
     const char* outputFilename = "output.tif";
     uint  rayPerPoint          = 256; // 128
     uint  tileSize             = 2000; // 300
-    uint  tileBuffer           = tileSize/3;
+    uint  tileBuffer           = tileSize;
     bool  printInfos           = false;
     float exaggeration         = 1.0;
     uint maxBounces            = 0;
     float bias                 = 1;
     bool isShadowMap           = false;
     float scale = 1;
-    uint sm_rays_per_dir = 16;
-    uint sm_nb_dirs = 100;
+    uint sm_rays_per_dir = 32;
+    uint sm_nb_dirs = 90;
 
     for(int i=1; i<argc; i++){
         if(strEqual(argv[i], "-i")){
@@ -63,7 +63,7 @@ int main(int argc, char* argv[]){
             bias = strToFloat(argv[++i]);
         }else if(strEqual(argv[i], "--shadow-map")){
             isShadowMap = true;
-            scale = 0.5;
+            scale = 0.3;
         }else if(strEqual(argv[i], "--info")){
             printInfos = true;
         }else{

@@ -7,7 +7,7 @@
 class Raster{
 
 public:
-    Raster(const char* const filename, const Raster* const copyFrom = nullptr, const bool isShadowMap = false, const float scale = 1.0, const uint sm_nb_bands = 0);
+    Raster(const char* const filename, const Raster* const copyFrom = nullptr, const bool isShadowMap = false, const float scale = 1.0, const uint sm_nb_dirs = 0);
     ~Raster();
 
     uint getHeight() const { return height; }
@@ -18,7 +18,6 @@ public:
     void readData(float* data,  const uint x, const uint y, const uint width, const uint height) const;
     void writeData(float* data, const uint x, const uint y, const uint width, const uint height) const;
     void writeDataShadowMap(Array3D<byte>& data, const uint x, const uint y, const uint width, const uint height) const;
-    Raster clone(const char* const newFileName);
 
 private:
     GDALDataset*    dataset;

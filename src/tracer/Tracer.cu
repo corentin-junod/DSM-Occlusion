@@ -42,7 +42,7 @@ void renderGpu(const Array2D<float>& data, const Array2D<Point3<float>>& points,
 }
 
 __global__
-void renderGpuShadowMap(const Array3D<byte>& data, const Array2D<Point3<float>>& points, const BVH& bvh, const uint rays_per_dir, const uint nb_dirs){
+void renderGpuShadowMap(const Array3D<byte>& data, const Array2D<Point3<float>>& points, const BVH& bvh, const byte rays_per_dir, const uint nb_dirs){
     const int x = threadIdx.x + blockIdx.x * blockDim.x;
     const int y = threadIdx.y + blockIdx.y * blockDim.y;
     if(x>=data.width() || y>=data.height()) return;
@@ -52,19 +52,17 @@ void renderGpuShadowMap(const Array3D<byte>& data, const Array2D<Point3<float>>&
     const Point3<float> origin(points[index].x, points[index].y, points[index].z);
 
     for(uint dir=0; dir<nb_dirs; dir++){
-        for(uint elevation=1; elevation<rays_per_dir; elevation++){
+        byte elevation = 1;
+        for(; elevation<rays_per_dir; elevation++){
             const float phi = dir*(TWO_PI/nb_dirs);
             const float theta = (PI / 2.0)-elevation*((PI/2.0)/rays_per_dir); //TODO We can improve that by considering 0° is always occluded and 90° is always not occluded
 
             direction.setFromAngles(phi, theta);
-            if(bvh.getLighting(origin, direction) > 0){
-                data.at(x, y, dir) = elevation-1;
-                break;
-            }else if(elevation == rays_per_dir-1){
-                data.at(x, y, dir) = elevation;
+            if (bvh.getLighting(origin, direction) > 0) {
                 break;
             }
         }
+        data.at(x, y, dir) = (elevation == rays_per_dir-1 ? elevation : elevation-1);
     }
 }
 
@@ -81,7 +79,6 @@ Tracer::~Tracer(){
 void Tracer::init(const bool prinInfos){
     randomState = (curandState*) allocGPU(sizeof(curandState), inputData.width()*inputData.height());
     Array2D<Point3<float>*> pointsPointers(inputData.width(), inputData.height());
-
     for(uint y=0; y<inputData.height(); y++){
         for(uint x=0; x<inputData.width(); x++){
             const uint index = y*inputData.width()+x;
@@ -89,7 +86,6 @@ void Tracer::init(const bool prinInfos){
             pointsPointers[index] = &(points[index]);
         }
     }
-    
     bvh.build(pointsPointers);
     if(prinInfos) bvh.printInfos();
     bvh.freeAfterBuild();
@@ -119,7 +115,7 @@ void Tracer::traceShadowMap(Array3D<byte>& outputData, const bool useGPU, const 
         Array2D<Point3<float>>* pointsGPU = points.toGPU();
         BVH* bvhGPU = bvh.toGPU();
         Array3D<byte>* dataGPU = outputData.toGPU();
-        renderGpuShadowMap<<<gridDims, blockDims>>>(*dataGPU, *pointsGPU, *bvhGPU, rays_per_dir, nb_dirs);
+        renderGpuShadowMap<<<gridDims, blockDims>>>(*dataGPU, *pointsGPU, *bvhGPU, (byte)rays_per_dir, nb_dirs);
         syncGPU();
         outputData.fromGPU(dataGPU);
         bvh.fromGPU(bvhGPU);

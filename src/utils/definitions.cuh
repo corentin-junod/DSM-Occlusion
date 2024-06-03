@@ -31,5 +31,4 @@ struct Extent {
     #define TIMED_INIT(name) {}
     #define TIMED_ACC(name, ...) __VA_ARGS__
     #define TIMED_PRINT(name) {}
-
 #endif
