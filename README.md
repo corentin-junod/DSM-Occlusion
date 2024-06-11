@@ -43,20 +43,20 @@ Path to the input file. Must be a file supported by GDAL like .tif
 Path to the output file, where the result will be written
 
 - ***-r raysPerPixel***  
-*optional parameter*, default value : 256  
+*optional parameter*, default value : 128  
 Number of rays to launch for each pixel. Increasing the parameter decreases the noise and increases the render quality and rendering time.  
   - lower than 256 = low quality (noise is very noticeable)
   - lower than 1024 = medium quality (noise is noticeable, but limited)
   - lower than 2048 = high quality (noise is almost not noticeable)
 
-- ***-t tile size (in pixels)***   
-*optional parameter*, default value : 2000  
+- ***-t tileSize*** (in pixels)  
+*optional parameter*, default value : 500  
 The input file is processed in square tiles. This parameter controls the tile side length.  
 Smaller tiles are computed faster, but lead to a larger buffer surface (see next parameter) and may create border error if the buffers are not large enough.  
 Larger tiles are more computation heavy for the GPU.  
 The optimal value for this parameter strongly depends on your graphic card, don't hesitate to try multiple sizes.
 
-- ***-b tile buffer (in pixels)***   
+- ***-b tileBuffer*** (in pixels)  
 *optional parameter*, default value : 1/3 of the tile size  
 The input file is processed in square tiles. To avoid border error, tiles are overlapping. This parameter controls the tile overlapping amount (in pixels) in each direction. 
 
@@ -64,7 +64,7 @@ The input file is processed in square tiles. To avoid border error, tiles are ov
 *optional parameter*, default value : 1.0
 This parameter scales all input values by the given factor. A value higher than 1.0 makes the shadows darker, revealing more details. 
 
-- ***-B maximum bounces***
+- ***-B maxBounces***
 *optional parameter*, default value : 0
 The maximum number of times a ray can bounce on the geometry before the ray is considered not reaching the sky.
 The higher the value, the more accurate and luminous the result will be. *Increase this value will drastically increase the processing time!*. A value of 0 (the default) leads to the same result as computing the sky view factor.
@@ -72,6 +72,13 @@ The higher the value, the more accurate and luminous the result will be. *Increa
 - ***--info***  
 *optional parameter*  
 Prints information about the GDAL driver and the graphic card. This is purely informative. 
+
+- ***--shadow-map***  
+*optional parameter*  
+Changes to behavior of the program. The program will generate an omnidirectional shadow map as a GeoTIFF. The file will encode at each pixel the sky visibility function for many elevation and azimuth. By default, 32 elevations and 90 azimuth direction are computed.   
+One pixel value contains 3 elevations values per 16 bits bands. The first 5 bits of the first band are the elevation of the first azimuth, the second 5 bits of the first band are the elevation of the second azimuth and so on. The first band contains azimuths 1/2/3, the second band azimuths 4/5/6 and so on.   
+By default, the output file is downscaled by a factor of 2.
+
 
 Example : `DSM_Occlusion -i /path/to/input.tif -o /path/to/output.tif -r 1024`
 
@@ -95,7 +102,7 @@ Example : `DSM_Occlusion -i /path/to/input.tif -o /path/to/output.tif -r 1024`
 
 2. Clone this repository
 
-3. Open a "x64 Native Tools Command Prompt for VS 2022" (or your current VS version). Can be found by searching for it in the Windows.
+3. Open a "x64 Native Tools Command Prompt for VS 2022" (or your current VS version). Can be found by searching for it in the Windows search bar.
 
 4. Navigate to the repository root and generate the project using the command `cmake -B ./build`
    Then build the project using `cmake --build ./build --config Release`. The executable is located in ./build/Release.

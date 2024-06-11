@@ -1,4 +1,3 @@
-#include <cstdlib>
 #include <cstring>
 
 #include "utils/definitions.cuh"
@@ -14,7 +13,7 @@ const char* const USAGE =
     "[-t tileSize (in pixels)] "
     "[-b tileBuffer (in pixels)] "
     "[-B raysBounces] "
-    "[-e exaggeration]"
+    "[-e exaggeration] "
     "[-b bias]\n";
 
 bool strEqual(const char* const s1, const char* const s2){
@@ -32,9 +31,9 @@ float strToFloat(const char* const str){
 int main(int argc, char* argv[]){
     const char* inputFilename  = nullptr;
     const char* outputFilename = "output.tif";
-    uint  rayPerPoint          = 256; // 128
-    uint  tileSize             = 2000; // 300
-    uint  tileBuffer           = tileSize;
+    uint  rayPerPoint          = 128;
+    uint  tileSize             = 500;
+    uint  tileBuffer           = tileSize/1.5;
     bool  printInfos           = false;
     float exaggeration         = 1.0;
     uint maxBounces            = 0;
@@ -63,7 +62,7 @@ int main(int argc, char* argv[]){
             bias = strToFloat(argv[++i]);
         }else if(strEqual(argv[i], "--shadow-map")){
             isShadowMap = true;
-            scale = 0.3;
+            scale = 0.5;
         }else if(strEqual(argv[i], "--info")){
             printInfos = true;
         }else{

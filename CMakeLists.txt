@@ -49,19 +49,13 @@ else() # If Linux
         set(GDAL_INCLUDE_DIR "/usr/include/gdal/")
     endif()
 
-    if(NOT DEFINED GDAL_LIB_DIR)
-        find_library(GDAL_LIB_DIR NAMES libgdal gdal REQUIRED)
-    endif()
+    find_library(GDAL_LIB_DIR NAMES libgdal gdal REQUIRED)
+
 endif()
 
-if (GDAL_INCLUDE_DIR)
-    target_include_directories(${PROJECT_NAME} PRIVATE ${GDAL_INCLUDE_DIR})
-else()
-    message(FATAL_ERROR "Unable to find GDAL headers directory")
-endif()
 
+target_include_directories(${PROJECT_NAME} PRIVATE ${GDAL_INCLUDE_DIR})
 target_link_libraries(${PROJECT_NAME} PRIVATE ${GDAL_LIB_DIR})
-
 
 add_compile_options($<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler"-use_fast_math -Wall -Wextra -O3">)
 set_target_properties(${PROJECT_NAME} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)

@@ -6,7 +6,7 @@
 
 uint SM_DIR_PER_BAND = 3;
 uint SM_ELEVATION_SIZE = 5;
-GDALDataType SM_BAND_TYPE = GDT_UInt32;
+GDALDataType SM_BAND_TYPE = GDT_UInt16;
 
 Raster::Raster(const char* const filename, const Raster* const copyFrom, const bool isShadowMap, const float scale, const uint sm_nb_dirs) : scale(scale) {
     CPLPushErrorHandler(CPLQuietErrorHandler);
@@ -66,7 +66,7 @@ void Raster::writeData(float* data, const uint x, const uint y, const uint width
 }
 
 void Raster::writeDataShadowMap(Array3D<byte>& data, const uint x0, const uint y0, const uint width, const uint height) const {
-    Array2D<uint> resultArray = Array2D<uint>(width, height);
+    Array2D<short> resultArray = Array2D<short>(width, height);
     for (uint y = 0; y < height; y++) {
         for (uint x = 0; x < width; x++) {
             resultArray.at(x, y) = 0;
