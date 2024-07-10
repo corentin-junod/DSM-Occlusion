@@ -99,16 +99,19 @@ void Pipeline::readData(PipelineStage* stage, const Raster* rasterIn, const uint
                 }
             }
 
-            if(isShadowMap){
-                if (state->dataOutShadowMap != nullptr) {
-                    delete state->dataOutShadowMap;
+            if (state->hasData) {
+                if (isShadowMap) {
+                    if (state->dataOutShadowMap != nullptr) {
+                        delete state->dataOutShadowMap;
+                    }
+                    state->dataOutShadowMap = new Array3D<byte>(state->extent.xMax - state->extent.xMin, state->extent.yMax - state->extent.yMin, sm_nb_dirs);
                 }
-                state->dataOutShadowMap = new Array3D<byte>(state->extent.xMax-state->extent.xMin, state->extent.yMax-state->extent.yMin, sm_nb_dirs);
-            }else{ 
-                if(state->dataOut != nullptr){
-                    delete state->dataOut; 
+                else {
+                    if (state->dataOut != nullptr) {
+                        delete state->dataOut;
+                    }
+                    state->dataOut = new Array2D<float>(state->extent.xMax - state->extent.xMin, state->extent.yMax - state->extent.yMin);
                 }
-                state->dataOut = new Array2D<float>(state->extent.xMax-state->extent.xMin, state->extent.yMax-state->extent.yMin);
             }
 
             nbTileProcessed++;
