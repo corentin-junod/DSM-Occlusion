@@ -52,17 +52,19 @@ void renderGpuShadowMap(const Array3D<byte>& data, const Array2D<Point3<float>>&
     const Point3<float> origin(points[index].x, points[index].y, points[index].z);
 
     for(uint dir=0; dir<nb_dirs; dir++){
-        byte elevation = 1;
-        for(; elevation<rays_per_dir; elevation++){
+        byte result = rays_per_dir - 1;
+        for(byte elevation = 1; elevation<=rays_per_dir; elevation++){
             const float phi = dir*(TWO_PI/nb_dirs);
-            const float theta = (PI / 2.0)-elevation*((PI/2.0)/rays_per_dir); //TODO We can improve that by considering 0° is always occluded and 90° is always not occluded
+            const float theta = (PI/2.0)-elevation*((PI/2.0)/rays_per_dir); //TODO We can improve that by considering 0° is always occluded and 90° is never occluded
 
             direction.setFromAngles(phi, theta);
-            if (bvh.getLighting(origin, direction) > 0) {
+            if (bvh.getLightingShadowMap(origin, direction)) {
+                result = elevation - 1;
                 break;
             }
         }
-        data.at(x, y, dir) = (elevation == rays_per_dir-1 ? elevation : elevation-1);
+        data.at(x, y, dir) = result;
+        __syncthreads();
     }
 }
 
@@ -96,9 +98,9 @@ void Tracer::trace(Array2D<float>& outputData, const bool useGPU, const uint ray
         const dim3 blockDims(BLOCK_DIM_SIZE, BLOCK_DIM_SIZE);
         const dim3 gridDims(outputData.width()/blockDims.x+1, outputData.height()/blockDims.y+1);
 
-        Array2D<Point3<float>>* pointsGPU = points.toGPU();
-        BVH* bvhGPU = bvh.toGPU();
-        Array2D<float>* dataGPU = outputData.toGPU();
+        pointsGPU = points.toGPU();
+        bvhGPU = bvh.toGPU();
+        dataGPU = outputData.toGPU();
         renderGpu<<<gridDims, blockDims>>>(*dataGPU, *pointsGPU, *bvhGPU, raysPerPoint, maxBounces, randomState, bias);
         syncGPU();
         outputData.fromGPU(dataGPU);
@@ -107,19 +109,24 @@ void Tracer::trace(Array2D<float>& outputData, const bool useGPU, const uint ray
     }
 }
 
+void Tracer::moveToGpuShadowMap(Array3D<byte>& outputData) {
+    pointsGPU = points.toGPU();
+    bvhGPU = bvh.toGPU();
+    dataGPUShadowMap = outputData.toGPU();
+}
+
+void Tracer::moveFromGpuShadowMap(Array3D<byte>& outputData) {
+    outputData.fromGPU(dataGPUShadowMap);
+    bvh.fromGPU(bvhGPU);
+    points.fromGPU(pointsGPU);
+}
+
 void Tracer::traceShadowMap(Array3D<byte>& outputData, const bool useGPU, const uint rays_per_dir, const uint nb_dirs){
     if(useGPU){
         const dim3 blockDims(BLOCK_DIM_SIZE, BLOCK_DIM_SIZE);
         const dim3 gridDims(outputData.width()/blockDims.x+1, outputData.height()/blockDims.y+1);
-
-        Array2D<Point3<float>>* pointsGPU = points.toGPU();
-        BVH* bvhGPU = bvh.toGPU();
-        Array3D<byte>* dataGPU = outputData.toGPU();
-        renderGpuShadowMap<<<gridDims, blockDims>>>(*dataGPU, *pointsGPU, *bvhGPU, (byte)rays_per_dir, nb_dirs);
+        renderGpuShadowMap<<<gridDims, blockDims>>>(*dataGPUShadowMap, *pointsGPU, *bvhGPU, (byte)rays_per_dir, nb_dirs);
         syncGPU();
-        outputData.fromGPU(dataGPU);
-        bvh.fromGPU(bvhGPU);
-        points.fromGPU(pointsGPU);
     }
 }
 

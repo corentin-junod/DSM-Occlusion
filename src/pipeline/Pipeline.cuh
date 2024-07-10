@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../utils/definitions.cuh"
-#include "../utils/logging.h"
 #include "../IO/Raster.h"
 #include "../array/Array.cuh"
 #include "../tracer/Tracer.cuh"
@@ -22,6 +21,7 @@ struct PipelineState {
     int y = 0;
     bool hasData  = false;
     bool finished = false;
+    bool isShadowMap = false;
     Array3D<byte>* dataOutShadowMap = nullptr;
 };
 
@@ -44,8 +44,8 @@ private:
     Raster& rasterOut;
 
     static void waitForNextStep(PipelineStage* stage);
-    static void readData(PipelineStage* stage, const Raster* rasterIn, const uint tileSize, const uint tileBuffer, const bool isShadowMap, const uint sm_nb_dirs);
+    static void readData(PipelineStage* stage, const Raster* rasterIn, const uint tileSize, const uint tileBufferp, const bool isShadowMap, const uint sm_nb_dirs);
     static void initTile(PipelineStage* stage, const float pixelSize, const float exaggeration=1.0, const uint maxBounces=0);
-    static void trace(PipelineStage* stage, const uint rayPerPoint, const float bias, const bool isShadowMap, const uint sm_rays_per_dir, const uint sm_nb_dirs);
-    static void writeData(PipelineStage* stage, const Raster* const rasterOut, const bool isShadowMap, const uint sm_nb_dirs);
+    static void trace(PipelineStage* stage, const uint rayPerPoint, const float bias, const uint sm_rays_per_dir, const uint sm_nb_dirs);
+    static void writeData(PipelineStage* stage, const Raster* const rasterOut, const uint sm_nb_dirs);
 };

@@ -16,6 +16,7 @@ struct Extent {
 };
 
 // Timing helper functions
+//#define TIMING_DEBUG
 #ifdef TIMING_DEBUG
     #include <chrono>
     #define TIMED_INIT(name) \

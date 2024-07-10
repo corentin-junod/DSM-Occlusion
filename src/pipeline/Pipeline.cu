@@ -6,6 +6,8 @@
 #include <condition_variable>
 #include <string>
 
+#include "../utils/logging.h"
+
 std::condition_variable cv;
 std::atomic<int> nbFinished(0);
 std::mutex mutex;
@@ -21,8 +23,8 @@ rasterIn(rasterIn), rasterOut(rasterOut){
 
     stages[0].thread = new std::thread(Pipeline::readData,  &stages[0], &rasterIn, tileSize, tileBuffer, isShadowMap, sm_nb_dirs);
     stages[1].thread = new std::thread(Pipeline::initTile,  &stages[1], rasterIn.getPixelSize(), exaggeration, maxBounces);
-    stages[2].thread = new std::thread(Pipeline::trace,     &stages[2], rayPerPoint, bias, isShadowMap, sm_rays_per_dir, sm_nb_dirs);
-    stages[3].thread = new std::thread(Pipeline::writeData, &stages[3], &rasterOut, isShadowMap, sm_nb_dirs);
+    stages[2].thread = new std::thread(Pipeline::trace,     &stages[2], rayPerPoint, bias, sm_rays_per_dir, sm_nb_dirs);
+    stages[3].thread = new std::thread(Pipeline::writeData, &stages[3], &rasterOut, sm_nb_dirs);
 }
 
 Pipeline::~Pipeline(){
@@ -37,7 +39,7 @@ Pipeline::~Pipeline(){
 bool Pipeline::step(){
     while(nbFinished < NB_PIPELINE_STAGES){}
     std::lock_guard<std::mutex> lock(mutex);
-    debug_print("NEXT STEP \n");
+    debug_print("________________________________\n");
 
     PipelineState* state1Tmp = stages[0].state;
     stages[0].state = stages[3].state;
@@ -73,7 +75,6 @@ void Pipeline::readData(PipelineStage* stage, const Raster* rasterIn, const uint
             print_atomic("Processing tile " + std::to_string(nbTileProcessed + 1) + "/" + std::to_string(nbTiles) + " (" + std::to_string(100 * nbTileProcessed / nbTiles) + "%)...\n");
 
             PipelineState* state = stage->state;
-
             state->id = nbTileProcessed;
             state->x = x;
             state->y = y;
@@ -83,6 +84,8 @@ void Pipeline::readData(PipelineStage* stage, const Raster* rasterIn, const uint
             state->extent.yMin = std::max(0, (int)y-(int)tileBuffer);
             state->extent.xMax = std::min(rasterIn->getWidth(), x+state->width+tileBuffer);
             state->extent.yMax = std::min(rasterIn->getHeight(),y+state->height+tileBuffer);
+            state->isShadowMap = isShadowMap;
+            state->hasData = false;
 
             if(state->dataIn != nullptr){
                 delete state->dataIn;
@@ -92,6 +95,7 @@ void Pipeline::readData(PipelineStage* stage, const Raster* rasterIn, const uint
             for(uint i=0; i<state->dataIn->size(); i++){
                 if((*state->dataIn)[i] != noDataValue){
                     state->hasData = true;
+                    break;
                 }
             }
 
@@ -124,16 +128,18 @@ void Pipeline::initTile(PipelineStage* stage, const float pixelSize, const float
     while(!state->finished){
         Pipeline::waitForNextStep(stage);
         state = stage->state;
-        if(state->hasData && state->id >= 0){
-            debug_print("> Thread 2 : Instancing tracer for tile " + std::to_string(state->id+1) + "...\n");
-            if(state->tracer != nullptr){
-                delete state->tracer;
+        if (state->id >= 0) {
+            if (state->hasData) {
+                debug_print("> Thread 2 : Instancing tracer for tile " + std::to_string(state->id + 1) + "...\n");
+                if (state->tracer != nullptr) {
+                    delete state->tracer;
+                }
+                state->tracer = new Tracer(*state->dataIn, pixelSize, exaggeration, maxBounces);
+                debug_print("> Thread 2 : Building BVH of tile " + std::to_string(state->id + 1) + "...\n");
+                state->tracer->init(false);
+            }else {
+                cout() << "> Thread 2 : Tile " << state->id + 1 << " skipped because it had no data \n";
             }
-            state->tracer = new Tracer(*state->dataIn, pixelSize, exaggeration, maxBounces);
-            debug_print("> Thread 2 : Building BVH of tile " + std::to_string(state->id + 1) + "...\n");
-            state->tracer->init(false);
-        }else if(state->id >= 0){
-            cout() << "> Thread 2 : Tile "<< state->id+1  <<" skipped because it had no data \n";
         }
     }
     debug_print("> Thread 2 : finished...\n");
@@ -142,15 +148,20 @@ void Pipeline::initTile(PipelineStage* stage, const float pixelSize, const float
     debug_print("> Thread 2 : exit\n");
 }
 
-void Pipeline::trace(PipelineStage* stage, const uint rayPerPoint, const float bias, const bool isShadowMap, const uint sm_rays_per_dir, const uint sm_nb_dirs){
+void Pipeline::trace(PipelineStage* stage, const uint rayPerPoint, const float bias, const uint sm_rays_per_dir, const uint sm_nb_dirs){
     PipelineState* state = stage->state;
     while(!state->finished){
         Pipeline::waitForNextStep(stage);
         state = stage->state;
         if(state->hasData && state->id >= 0){
             debug_print("> Tracing tile " + std::to_string(state->id+1) + "...\n");
-            if(isShadowMap){
+            if(state->isShadowMap){
+                debug_print(">> Moving data to GPU ...\n");
+                state->tracer->moveToGpuShadowMap(*state->dataOutShadowMap);
+                debug_print(">> Tracing GPU ...\n");
                 state->tracer->traceShadowMap(*state->dataOutShadowMap, true, sm_rays_per_dir, sm_nb_dirs);
+                debug_print(">> Moving data from GPU ...\n");
+                state->tracer->moveFromGpuShadowMap(*state->dataOutShadowMap);
             }else{
                 state->tracer->trace(*state->dataOut, true, rayPerPoint, bias);
             }
@@ -161,16 +172,16 @@ void Pipeline::trace(PipelineStage* stage, const uint rayPerPoint, const float b
     debug_print("> Thread 3 : exit\n");
 }
 
-void Pipeline::writeData(PipelineStage* stage, const Raster* const rasterOut, const bool isShadowMap, const uint sm_nb_dirs){
+void Pipeline::writeData(PipelineStage* stage, const Raster* const rasterOut, const uint sm_nb_dirs){
     PipelineState* state = stage->state;
     while(!state->finished){
         Pipeline::waitForNextStep(stage);
         state = stage->state;
         if(state->hasData && state->id >= 0){
-            debug_print("> Thread 4 : Writing tile " + std::to_string(state->id+1) + "...\n");
+            debug_print("> Thread 4 : Processing tile " + std::to_string(state->id+1) + " for writing...\n");
             const float noDataValue = rasterOut->getNoDataValue();
 
-            if(isShadowMap){
+            if(state->isShadowMap){
                 Array3D<byte> dataCropped(state->width, state->height, state->dataOutShadowMap->depth());
                 uint i=0, j=0, crop_x=0, crop_y=0;
                 for(int curY=state->extent.yMin; curY < state->extent.yMax; curY++){
@@ -197,6 +208,7 @@ void Pipeline::writeData(PipelineStage* stage, const Raster* const rasterOut, co
                         j++;
                     }
                 }
+                debug_print("> Thread 4 : Writing file using GDAL " + std::to_string(state->id + 1) + "...\n");
                 rasterOut->writeDataShadowMap(dataCropped, state->x, state->y, state->width, state->height);
 
             }else{

@@ -32,7 +32,7 @@ int main(int argc, char* argv[]){
     const char* inputFilename  = nullptr;
     const char* outputFilename = "output.tif";
     uint  rayPerPoint          = 128;
-    uint  tileSize             = 500;
+    uint  tileSize             = 800;
     uint  tileBuffer           = tileSize/1.5;
     bool  printInfos           = false;
     float exaggeration         = 1.0;

@@ -11,6 +11,8 @@ public:
     void init(const bool prinInfos);
     void trace(Array2D<float>& outputData, const bool useGPU, const uint raysPerPoint, const float bias);
     void traceShadowMap(Array3D<byte>& outputData, const bool useGPU, const uint rays_per_dir, const uint nb_dirs);
+    void moveToGpuShadowMap(Array3D<byte>& outputData);
+    void moveFromGpuShadowMap(Array3D<byte>& outputData);
 
 private:
     const float pixelSize;
@@ -21,4 +23,9 @@ private:
     const Array2D<float>& inputData;
     Array2D<Point3<float>> points;
     curandState* randomState = nullptr;
+
+    Array2D<Point3<float>>* pointsGPU;
+    BVH* bvhGPU;
+    Array3D<byte>* dataGPUShadowMap;
+    Array2D<float>* dataGPU;
 };

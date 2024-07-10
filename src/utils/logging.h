@@ -26,6 +26,8 @@ inline void print_atomic(const std::string str) {
     cout() << str;
 }
 
+//#define DEBUG_MESSAGES
+
 #ifdef DEBUG_MESSAGES
     inline void debug_print(std::string str){print_atomic(str);}
 #else

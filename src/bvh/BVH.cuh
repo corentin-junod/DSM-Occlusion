@@ -142,6 +142,31 @@ public:
         return radiance;
     }
 
+    __device__ bool getLightingShadowMap(const Point3<float>& origin, const Vec3<float>& dir) const {
+        const uint maxIndex = nbNodes;
+        const Vec3<float> invDir(fdividef(1, dir.x), fdividef(1, dir.y), fdividef(1, dir.z));
+        Point3<float> curOrigin = Point3<float>(origin.x, origin.y, origin.z);
+        uint nodeIndex = 0;
+        bool wasHit = false;
+
+        while (nodeIndex < maxIndex) {
+            const BVHNode node = bvhNodes[nodeIndex];
+            if (node.isLeafe && wasHit) {
+                return false;
+            }else if (node.bboxLeft.intersects(invDir, curOrigin)) {
+                nodeIndex++;
+                wasHit = true;
+            }else if (node.bboxRight.intersects(invDir, curOrigin)) {
+                nodeIndex += node.sizeLeft + 1;
+                wasHit = true;
+            }else {
+                nodeIndex += node.sizeRight + node.sizeLeft + 1;
+                wasHit = false;
+            }
+        }
+        return true;
+    }
+
     void build(Array2D<Point3<float>*>& points) {
         Bbox<float> globalBbox = Bbox<float>();
 

@@ -27,4 +27,5 @@ private:
     const float scale;
     float pixelSize;
     float noDataValue;
+    bool isReadOnly;
 };
