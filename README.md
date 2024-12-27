@@ -1,7 +1,7 @@
 <h1 align="center">DSM Occlusion</h1>
 <h3 align="center">Fast, ray-traced, occlusion for raster models</h3>
 
-![DSM Occlusion example](/assets/neuchatel_banner.jpg)
+![DSM Occlusion example](/assets/banner.jpg)
 
 <br>
 <h2 align="center">Key features</h2>
@@ -49,31 +49,39 @@ Number of rays to launch for each pixel. Increasing the parameter decreases the 
   - lower than 1024 = medium quality (noise is noticeable, but limited)
   - lower than 2048 = high quality (noise is almost not noticeable)
 
-- ***-t tile size (in pixels)***   
-*optional parameter*, default value : 2000  
+- ***-t tileSize***   
+*optional parameter*, default value : 2000, in pixels  
 The input file is processed in square tiles. This parameter controls the tile side length.  
 Smaller tiles are computed faster, but lead to a larger buffer surface (see next parameter) and may create border error if the buffers are not large enough.  
 Larger tiles are more computation heavy for the GPU.  
 The optimal value for this parameter strongly depends on your graphic card, don't hesitate to try multiple sizes.
 
-- ***-b tile buffer (in pixels)***   
-*optional parameter*, default value : 1/3 of the tile size  
+- ***-b tileBuffer*** 
+*optional parameter*, default value : 1/3 of the tile size, in pixels  
 The input file is processed in square tiles. To avoid border error, tiles are overlapping. This parameter controls the tile overlapping amount (in pixels) in each direction. 
 
 - ***-e exaggeration***   
 *optional parameter*, default value : 1.0
 This parameter scales all input values by the given factor. A value higher than 1.0 makes the shadows darker, revealing more details. 
 
-- ***-B maximum bounces***
+- ***-B maximumBounces***
 *optional parameter*, default value : 0
 The maximum number of times a ray can bounce on the geometry before the ray is considered not reaching the sky.
 The higher the value, the more accurate and luminous the result will be. *Increase this value will drastically increase the processing time!*. A value of 0 (the default) leads to the same result as computing the sky view factor.
 
-- ***--bias***
+- ***--bias biasValue***
 *optional parameter*, default value : 1.0
 Bias applied to rays distribution. A value of 1 means no bias, and the rays are uniformly sampled in all directions.
 Values greater than 1 bias rays toward the horizon, revealing small terrain details but darkening already occluded areas.
 Values smaller than 1 bias rays toward the zenith, brightening dark areas and discarding terrain details.
+
+- ***--tiled***
+*optional parameter*
+Instead of creating one output file and writing everything at once inside it, creates the folder *./output_tiles* and render each tile separately inside it. This is especially usefull when rendering very large files.
+
+- ***--startTile***
+*optional parameter*, default value : 0
+Id of the first tile to be processed. All tiles before it will be ignored and not rendered. This is usefull combined with the *--tiled* options to resume a render at a given tile.
 
 - ***--info***  
 *optional parameter*  

@@ -1,5 +1,7 @@
+#include <chrono>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 
 #include "utils/definitions.cuh"
 #include "utils/logging.h"
@@ -32,13 +34,15 @@ float strToFloat(const char* const str){
 int main(int argc, char* argv[]){
     const char* inputFilename  = nullptr;
     const char* outputFilename = "output.tif";
-    uint  rayPerPoint          = 256; // 128
-    uint  tileSize             = 2000; // 300
+    uint  rayPerPoint          = 512;
+    uint  tileSize             = 2000;
     uint  tileBuffer           = tileSize/3;
     bool  printInfos           = false;
     float exaggeration         = 1.0;
     uint maxBounces            = 0;
     float bias                 = 1;
+    bool tiledRender           = false;
+    uint startTile             = 0;
 
     for(int i=1; i<argc; i++){
         if(strEqual(argv[i], "-i")){
@@ -59,41 +63,51 @@ int main(int argc, char* argv[]){
             bias = strToFloat(argv[++i]);
         }else if(strEqual(argv[i], "--info")){
             printInfos = true;
+        }else if(strEqual(argv[i], "--tiled")){
+            tiledRender = true;
+        }else if(strEqual(argv[i], "--startTile")){
+            startTile = strToUint(argv[++i]);
         }else{
-            cout() << "Error : Invalid argument : " << argv[i] << '\n' << USAGE;
+            logger::cout() << "Error : Invalid argument : " << argv[i] << '\n' << USAGE;
             exit(EXIT_FAILURE);
         }
     }
 
     if(inputFilename == nullptr){
-        cout() << "Error : Input file required\n" << USAGE;
+        logger::cout() << "Error : Input file required\n" << USAGE;
         exit(EXIT_FAILURE);
     }
 
-    cout() << "Creating output file ...\n";
+    logger::cout() << "Creating output file ...\n";
+    auto startTime = chrono::high_resolution_clock::now();
     {
         try {
-            Raster rasterIn  = Raster(inputFilename);
-            Raster rasterOut = Raster(outputFilename, &rasterIn);
+            Raster rasterIn = Raster(inputFilename);
 
             if(printInfos){
                 rasterIn.printInfos();
                 printDevicesInfos();     
             }
 
-            {
-                Pipeline pipeline = Pipeline(rasterIn, rasterOut, tileSize, rayPerPoint, tileBuffer, exaggeration, maxBounces, bias);
+            if(!tiledRender){
+                Raster rasterOut = Raster(outputFilename, &rasterIn);
+                Pipeline pipeline = Pipeline(rasterIn, &rasterOut, tileSize, rayPerPoint, tileBuffer, exaggeration, maxBounces, bias, startTile);
+                while(pipeline.step()){}
+            }else{
+                std::filesystem::create_directory("./output_tiles/");
+                Pipeline pipeline = Pipeline(rasterIn, nullptr, tileSize, rayPerPoint, tileBuffer, exaggeration, maxBounces, bias, startTile);
                 while(pipeline.step()){}
             }
-            cout() << "Writing statistics and closing file... \n";
+            logger::cout() << "Writing statistics and closing file... \n";
         } catch (const std::exception& e) {
-            cout() << "Error : " << e.what() << "\n";
+            logger::cout() << "Error : " << e.what() << "\n";
             return EXIT_FAILURE;
         } catch(...){
-            cout() << "Unkown error occured\n";
+            logger::cout() << "Unkown error occured\n";
             return EXIT_FAILURE;
         }
     }
-    cout() << "Finished \n";
+    int elapsedTime = chrono::duration_cast<chrono::seconds>(chrono::high_resolution_clock::now() - startTime).count();
+    logger::cout() << "Finished in " << elapsedTime << "s\n";
     return EXIT_SUCCESS;
 }

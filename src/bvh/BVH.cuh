@@ -138,7 +138,6 @@ public:
                 wasHit=false;
             }
         }
-
         return radiance;
     }
 

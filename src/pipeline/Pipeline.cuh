@@ -6,9 +6,20 @@
 #include "../array/Array.cuh"
 #include "../tracer/Tracer.cuh"
 
+#include <string>
 #include <thread>
+#include <chrono>
+
+using namespace std;
+using namespace logger;
+
+typedef chrono::time_point<chrono::high_resolution_clock> timePoint;
 
 constexpr int NB_PIPELINE_STAGES = 4;
+
+const std::string STAGE_NAMES[4] = {
+    "READ_DATA", "INIT_TILE", "TRACE", "WRITE_DATA"
+};
 
 struct PipelineState {
     const Array2D<float>* dataIn = nullptr;
@@ -33,18 +44,19 @@ struct PipelineStage {
 
 class Pipeline{
 public:
-    Pipeline(Raster& rasterIn, Raster& rasterOut, const uint tileSize, const uint rayPerPoint, const uint tileBuffer, const float exaggeration, const uint maxBounces, const float bias);
+    Pipeline(
+        Raster& rasterIn, Raster* rasterOut, uint tileSize, uint rayPerPoint, uint tileBuffer, float exaggeration, uint maxBounces, float bias, uint startTile);
     ~Pipeline();
     bool step();
 
 private:
     PipelineStage stages[NB_PIPELINE_STAGES]; 
     Raster& rasterIn;
-    Raster& rasterOut;
+    Raster* rasterOut;
 
-    static void waitForNextStep(PipelineStage* stage);
-    static void readData(PipelineStage* stage, const Raster* rasterIn, const uint tileSize, const uint tileBuffer);
-    static void initTile(PipelineStage* stage, const float pixelSize, const float exaggeration=1.0, const uint maxBounces=0);
-    static void trace(PipelineStage* stage, const uint rayPerPoint, const float bias);
-    static void writeData(PipelineStage* stage, const Raster* const rasterOut);
+    static void waitForNextStep(PipelineStage* stage, timePoint startTime);
+    static void readData(PipelineStage* stage, const Raster* rasterIn, uint tileSize, uint tileBuffer, uint startTile);
+    static void initTile(PipelineStage* stage, float pixelSize, float exaggeration=1.0, uint maxBounces=0);
+    static void trace(PipelineStage* stage, uint rayPerPoint, float bias);
+    static void writeData(PipelineStage* stage, const Raster* const rasterOut, const Raster* rasterIn);
 };

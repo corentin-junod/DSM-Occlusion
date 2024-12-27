@@ -4,12 +4,12 @@ set(CMAKE_SUPPRESS_REGENERATION true)
 
 if (UNIX)
     find_file(CMAKE_CUDA_COMPILER nvcc /usr/local/cuda/bin/ /opt/cuda/bin/)
+    set(CMAKE_CXX_COMPILER g++)
 endif (UNIX)
 
 if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
     set(CMAKE_CUDA_ARCHITECTURES "native")
 endif()
-enable_language(CUDA)
 
 project(
     DSM_Occlusion
@@ -17,6 +17,8 @@ project(
     DESCRIPTION "Fast, ray-traced, occlusion for raster models"
     LANGUAGES CXX CUDA
 )
+
+enable_language(CUDA)
 
 option(TIMING_DEBUG "Print debug times during computation" OFF)
 option(DEBUG_MESSAGES "Print debug messages during computation" OFF)
@@ -40,7 +42,6 @@ if (MSVC) # If windows
     if(NOT DEFINED GDAL_LIB_DIR)
         find_library(GDAL_LIB_DIR gdal.lib HINTS "C:/OSGeo4W/lib" REQUIRED)
     endif()
-
 
 else() # If Linux
 	target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -O3 -fopenmp)

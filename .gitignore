@@ -1,5 +1,6 @@
 build/*
 data/*
+output_tiles/*
 *.o
 *.ppm
 dll_dependencies
