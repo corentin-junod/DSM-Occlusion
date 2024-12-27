@@ -64,22 +64,22 @@ The input file is processed in square tiles. To avoid border error, tiles are ov
 *optional parameter*, default value : 1.0
 This parameter scales all input values by the given factor. A value higher than 1.0 makes the shadows darker, revealing more details. 
 
-- ***-B maximumBounces***
+- ***-B maximumBounces*** 
 *optional parameter*, default value : 0
 The maximum number of times a ray can bounce on the geometry before the ray is considered not reaching the sky.
 The higher the value, the more accurate and luminous the result will be. *Increase this value will drastically increase the processing time!*. A value of 0 (the default) leads to the same result as computing the sky view factor.
 
-- ***--bias biasValue***
+- ***--bias biasValue*** 
 *optional parameter*, default value : 1.0
 Bias applied to rays distribution. A value of 1 means no bias, and the rays are uniformly sampled in all directions.
 Values greater than 1 bias rays toward the horizon, revealing small terrain details but darkening already occluded areas.
 Values smaller than 1 bias rays toward the zenith, brightening dark areas and discarding terrain details.
 
-- ***--tiled***
+- ***--tiled*** 
 *optional parameter*
-Instead of creating one output file and writing everything at once inside it, creates the folder *./output_tiles* and render each tile separately inside it. This is especially usefull when rendering very large files.
+Instead of creating one output file and writing everything at once inside it, creates the folder *./output_tiles* and render each tile separately inside it. This is especially usefull when rendering very large files. If this options is enabled, the option *-o* is ignored.
 
-- ***--startTile***
+- ***--startTile tileId*** 
 *optional parameter*, default value : 0
 Id of the first tile to be processed. All tiles before it will be ignored and not rendered. This is usefull combined with the *--tiled* options to resume a render at a given tile.
 
