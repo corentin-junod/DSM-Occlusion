@@ -39,52 +39,52 @@ Supported operating systems are Windows and Linux.
 Path to the input file. Must be a file supported by GDAL like .tif
 
 - ***-o outputFile***  
-*optional parameter*, default value : output.tif  
+*optional parameter*, default value : output.tif   
 Path to the output file, where the result will be written
 
 - ***-r raysPerPixel***  
-*optional parameter*, default value : 256  
+*optional parameter*, default value : 256   
 Number of rays to launch for each pixel. Increasing the parameter decreases the noise and increases the render quality and rendering time.  
   - lower than 256 = low quality (noise is very noticeable)
   - lower than 1024 = medium quality (noise is noticeable, but limited)
   - lower than 2048 = high quality (noise is almost not noticeable)
 
 - ***-t tileSize***   
-*optional parameter*, default value : 2000, in pixels  
+*optional parameter*, default value : 2000, in pixels   
 The input file is processed in square tiles. This parameter controls the tile side length.  
 Smaller tiles are computed faster, but lead to a larger buffer surface (see next parameter) and may create border error if the buffers are not large enough.  
 Larger tiles are more computation heavy for the GPU.  
 The optimal value for this parameter strongly depends on your graphic card, don't hesitate to try multiple sizes.
 
-- ***-b tileBuffer*** 
-*optional parameter*, default value : 1/3 of the tile size, in pixels  
+- ***-b tileBuffer***   
+*optional parameter*, default value : 1/3 of the tile size, in pixels   
 The input file is processed in square tiles. To avoid border error, tiles are overlapping. This parameter controls the tile overlapping amount (in pixels) in each direction. 
 
 - ***-e exaggeration***   
-*optional parameter*, default value : 1.0
+*optional parameter*, default value : 1.0   
 This parameter scales all input values by the given factor. A value higher than 1.0 makes the shadows darker, revealing more details. 
 
-- ***-B maximumBounces*** 
-*optional parameter*, default value : 0
+- ***-B maximumBounces***   
+*optional parameter*, default value : 0    
 The maximum number of times a ray can bounce on the geometry before the ray is considered not reaching the sky.
 The higher the value, the more accurate and luminous the result will be. *Increase this value will drastically increase the processing time!*. A value of 0 (the default) leads to the same result as computing the sky view factor.
 
-- ***--bias biasValue*** 
-*optional parameter*, default value : 1.0
+- ***--bias biasValue***   
+*optional parameter*, default value : 1.0   
 Bias applied to rays distribution. A value of 1 means no bias, and the rays are uniformly sampled in all directions.
 Values greater than 1 bias rays toward the horizon, revealing small terrain details but darkening already occluded areas.
 Values smaller than 1 bias rays toward the zenith, brightening dark areas and discarding terrain details.
 
-- ***--tiled*** 
-*optional parameter*
+- ***--tiled***   
+*optional parameter*   
 Instead of creating one output file and writing everything at once inside it, creates the folder *./output_tiles* and render each tile separately inside it. This is especially usefull when rendering very large files. If this options is enabled, the option *-o* is ignored.
 
-- ***--startTile tileId*** 
-*optional parameter*, default value : 0
+- ***--startTile tileId***    
+*optional parameter*, default value : 0   
 Id of the first tile to be processed. All tiles before it will be ignored and not rendered. This is usefull combined with the *--tiled* options to resume a render at a given tile.
 
-- ***--info***  
-*optional parameter*  
+- ***--info***    
+*optional parameter*   
 Prints information about the GDAL driver and the graphic card. This is purely informative. 
 
 Example : `DSM_Occlusion -i /path/to/input.tif -o /path/to/output.tif -r 1024`
