@@ -55,6 +55,6 @@ private:
     uint width;
     uint height;
     float pixelSize;
-    float noDataValue;
+    double noDataValue;
     double geoTransform[6];
 };

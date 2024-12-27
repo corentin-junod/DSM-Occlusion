@@ -29,6 +29,7 @@ struct ArraySegment{
 class BVH{
 public:
     __host__ BVH(const uint nbPixels, const float pixelSize): nbPixels(nbPixels), margin(pixelSize/2) {
+        std::cout << "nbPixels : " << nbPixels << "\n";
         bvhNodes       = (BVHNode*)        calloc(2*nbPixels, sizeof(BVHNode));
         stackMemory    = (ArraySegment*)   calloc(2*nbPixels, sizeof(ArraySegment));
         workingBuffer  = (Point3<float>**) calloc(nbPixels,   sizeof(Point3<float>*));
@@ -145,9 +146,7 @@ public:
         Bbox<float> globalBbox = Bbox<float>();
 
         uint* stack = (uint*) calloc(2*nbPixels, sizeof(uint));
-        uint stackSize=0;
-
-        uint elementsCounter = 0;
+        uint stackSize = 0;
         uint nbSegments = 0;
 
         stack[stackSize++] = nbSegments;
@@ -166,8 +165,6 @@ public:
             if(curSize <= ELEMENTS_MAX_SIZE){
                 curSegment->node->isLeafe = true;
                 curSegment->node->bboxLeft.setEnglobing(curSegment->head, curSize, margin);
-                elementsCounter += curSize;
-
             }else{
                 TIMED_ACC(set_englobing_time, globalBbox.setEnglobing(curSegment->head, curSize, margin); )
                 TIMED_ACC(split_time, const uint splitIndex = split(curSegment->head, curSize, globalBbox); )

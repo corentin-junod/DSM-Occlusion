@@ -24,7 +24,6 @@ enable_language(CUDA)
 option(TIMING_DEBUG "Print debug times during computation" OFF)
 option(DEBUG_MESSAGES "Print debug messages during computation" OFF)
 
-
 # General configuration
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp" "src/*.cu")
 add_executable(${PROJECT_NAME} ${SOURCES})
@@ -34,7 +33,7 @@ set(CMAKE_CONFIGURATION_TYPES "Debug;Release")
 
 
 if (MSVC) # If windows
-	add_compile_options(/W4 /O2)
+    #target_compile_options(${PROJECT_NAME} PRIVATE -W4 -O2)
 
     if(NOT DEFINED GDAL_INCLUDE_DIR)
         set(GDAL_INCLUDE_DIR "C:/OSGeo4W/include")
@@ -56,6 +55,8 @@ else() # If Linux
     endif()
 endif()
 
+target_compile_options(${PROJECT_NAME} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--Werror all-warnings --use_fast_math>)
+
 if (GDAL_INCLUDE_DIR)
     target_include_directories(${PROJECT_NAME} PRIVATE ${GDAL_INCLUDE_DIR})
 else()
@@ -63,8 +64,5 @@ else()
 endif()
 
 target_link_libraries(${PROJECT_NAME} PRIVATE ${GDAL_LIB_DIR})
-
-
-add_compile_options($<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler"-use_fast_math -Wall -Wextra -O3">)
 set_target_properties(${PROJECT_NAME} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
                                                            

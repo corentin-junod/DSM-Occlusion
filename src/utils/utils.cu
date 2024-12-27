@@ -5,7 +5,7 @@
 
 void* allocGPU(const uint count, const uint size){
     void* result = nullptr;
-    checkError(cudaMalloc(&result, count*size));
+    checkError(cudaMalloc(&result, ((size_t)count)*((size_t)size)));
     return result;
 }
 
