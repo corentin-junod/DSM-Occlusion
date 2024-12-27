@@ -9,15 +9,16 @@
 #include "pipeline/Pipeline.cuh"
 
 const char* const USAGE =
-    "Usage : "
-    "-i inputFile "
+    "Usage : -i inputFile "
     "[-o outputFile] "
     "[-r raysPerPixel] "
     "[-t tileSize (in pixels)] "
     "[-b tileBuffer (in pixels)] "
     "[-B raysBounces] "
     "[-e exaggeration]"
-    "[-b bias]\n";
+    "[-b bias] "
+    "[--tiled]"
+    "[--startTile tileID]";
 
 bool strEqual(const char* const s1, const char* const s2){
     return std::strncmp(s1, s2, MAX_STR_SIZE) == 0;

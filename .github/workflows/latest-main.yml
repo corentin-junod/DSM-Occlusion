@@ -35,7 +35,7 @@ jobs:
     - uses: actions/checkout@v3
 
     - name: Retrieve & Install CUDA Toolkit
-      uses: Jimver/cuda-toolkit@v0.2.14
+      uses: Jimver/cuda-toolkit@v0.2.19
       id: cuda-toolkit
       with:
         use-github-cache: false
@@ -45,6 +45,7 @@ jobs:
       shell: bash
       run: |
          if [ "$RUNNER_OS" == "Linux" ]; then
+              sudo apt-get update
               sudo apt-get install libgdal-dev
               echo "RELEASE_FILE_NAME=latest-main-linux.zip" >> $GITHUB_ENV
          elif [ "$RUNNER_OS" == "Windows" ]; then
