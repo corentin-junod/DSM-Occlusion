@@ -174,10 +174,16 @@ void Pipeline::writeData(PipelineStage* stage, const Raster* const rasterOut, co
             const float noDataValue = rasterIn->getNoDataValue();
             Array2D<float> dataCropped(state->width, state->height);
             uint i=0, j=0;
+            bool hasData = false;
             for(int curY=state->extent.yMin; curY < state->extent.yMax; curY++){
                 for(int curX=state->extent.xMin; curX < state->extent.xMax; curX++){
                     if(curY>=state->y && curY < state->y+(int)state->height && curX>=state->x && curX < state->x+(int)state->width){
-                        dataCropped[i++] = ((*state->dataIn)[j] == noDataValue ? noDataValue : (*state->dataOut)[j]);
+                        if((*state->dataIn)[j] != noDataValue){
+                            hasData = true;
+                            dataCropped[i++] = (*state->dataOut)[j];
+                        }else{
+                            dataCropped[i++] = noDataValue;
+                        }
                     }
                     j++;
                 }
@@ -185,15 +191,15 @@ void Pipeline::writeData(PipelineStage* stage, const Raster* const rasterOut, co
 
             if(rasterOut != nullptr){
                 rasterOut->writeData(dataCropped.begin(), state->x, state->y, state->width, state->height);
-            }else{
+            }else if(hasData){
                 const int tileX = state->x / state->width;
                 const int tileY = state->y / state->height;
                 std::ostringstream oss;
-                oss << "./output_tiles/" 
-                    << std::setw(8) << std::setfill('0') << state->id <<"_tile_" 
-                    << std::setw(5) << std::setfill('0') << tileX << "_" 
-                    << std::setw(5) << std::setfill('0') << tileY << ".tif";
+                oss << "./output_tiles/" << std::setw(8) << std::setfill('0') << state->id <<"_tile_" 
+                    << std::setw(5) << std::setfill('0') << tileX << "_" << std::setw(5) << std::setfill('0') << tileY << ".tif";
                 Raster::writeTile(dataCropped.begin(), state->x, state->y, state->width, state->height, rasterIn, oss.str().c_str());
+            }else{
+                logger::cout() << "> Tile "<< state->id+1  <<" not written because it had no data \n";
             }
         }
     }

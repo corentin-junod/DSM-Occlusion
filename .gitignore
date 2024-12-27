@@ -1,6 +1,7 @@
 build/*
 data/*
 output_tiles/*
+.vscode/*
 *.o
 *.ppm
 dll_dependencies

@@ -1,9 +1,11 @@
 #include "Raster.h"
 
 #include <cpl_error.h>
+#include <cpl_conv.h>
 #include <stdexcept>
 
 Raster::Raster(const char* const filename, const Raster* const copyFrom) {
+    CPLSetConfigOption("GTIFF_SRS_SOURCE", "EPSG");
     CPLPushErrorHandler(CPLQuietErrorHandler);
     GDALAllRegister();
     if(copyFrom == nullptr){
