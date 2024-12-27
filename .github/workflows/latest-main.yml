@@ -21,7 +21,7 @@ jobs:
           - os: windows-latest
             c_compiler: cl
             cpp_compiler: cl
-            cuda_sub_packages: ''
+            cuda_sub_packages: '[]'
           - os: ubuntu-latest
             c_compiler: gcc
             cpp_compiler: g++
