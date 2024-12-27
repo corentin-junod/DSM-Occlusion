@@ -39,6 +39,8 @@ jobs:
       id: cuda-toolkit
       with:
         cuda: '11.7.0'
+        method: 'network'
+        sub-packages: '["nvcc"]'
 
     - name: Retrieve & Install GDAL
       shell: bash
