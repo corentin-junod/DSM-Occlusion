@@ -23,10 +23,10 @@ jobs:
           - os: windows-latest
             c_compiler: cl
             cpp_compiler: cl
-            cuda_sub_packages: '["nvcc", "toolkit"]'
           - os: ubuntu-latest
             c_compiler: gcc
             cpp_compiler: g++
+            cuda_sub_packages: '["nvcc", "toolkit"]'
 
     steps:
     - uses: actions/checkout@v3
