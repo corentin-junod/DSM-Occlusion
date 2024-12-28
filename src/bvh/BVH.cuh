@@ -50,14 +50,15 @@ public:
     __host__ __device__ BVHNode* root() const {return &bvhNodes[0];}
 
     __host__ BVH* toGPU() const {
-        BVHNode* bvhNodesGPU   = (BVHNode*) allocGPU(sizeof(BVHNode), 2*nbPixels);
+        size_t nbMaxNodes = 2*nbPixels;
+        BVHNode* bvhNodesGPU   = (BVHNode*) allocGPU(sizeof(BVHNode), nbMaxNodes);
 
-        memCpuToGpu(bvhNodesGPU, bvhNodes, 2*nbPixels*sizeof(BVHNode));
+        memCpuToGpu(bvhNodesGPU, bvhNodes, nbMaxNodes*sizeof(BVHNode));
 
         ArraySegment* stackMemoryGPU = nullptr;
         if(stackMemory != nullptr){
-            stackMemoryGPU = (ArraySegment*) allocGPU(sizeof(ArraySegment), 2*nbPixels);
-            memCpuToGpu(stackMemoryGPU, stackMemory, 2*nbPixels*sizeof(ArraySegment));
+            stackMemoryGPU = (ArraySegment*) allocGPU(sizeof(ArraySegment), nbMaxNodes);
+            memCpuToGpu(stackMemoryGPU, stackMemory, nbMaxNodes*sizeof(ArraySegment));
         }
 
         Point3<float>** workingBufferGPU = nullptr;
@@ -79,16 +80,17 @@ public:
     }
 
     __host__ void fromGPU(BVH* replica){
+        size_t nbMaxNodes = 2*nbPixels;
         BVH tmp = BVH(nbPixels, margin*2);
         tmp.freeAfterBuild();
         tmp.freeAllMemory();
         memGpuToCpu(&tmp,     replica,      sizeof(BVH));
-        memGpuToCpu(bvhNodes, tmp.bvhNodes, 2*nbPixels*sizeof(BVHNode));
+        memGpuToCpu(bvhNodes, tmp.bvhNodes, nbMaxNodes*sizeof(BVHNode));
         
         freeGPU(tmp.bvhNodes);
 
         if(stackMemory != nullptr){
-            memGpuToCpu(stackMemory, tmp.stackMemory, 2*nbPixels*sizeof(ArraySegment));
+            memGpuToCpu(stackMemory, tmp.stackMemory, nbMaxNodes*sizeof(ArraySegment));
             freeGPU(tmp.stackMemory);
         }
         if(workingBuffer != nullptr){

@@ -27,11 +27,11 @@ void check_error(const cudaError_t result, const char* const func, const char* c
     }
 }
 
-void memGpuToCpu(void* const to, const void* const from, const uint size){
+void memGpuToCpu(void* const to, const void* const from, const size_t size){
     checkError(cudaMemcpy(to, from, size, cudaMemcpyDeviceToHost));
 }
 
-void memCpuToGpu(void* const to, const void* const from, const uint size){
+void memCpuToGpu(void* const to, const void* const from, const size_t size){
     checkError(cudaMemcpy(to, from, size, cudaMemcpyHostToDevice));
 }
 
