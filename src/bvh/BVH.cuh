@@ -29,7 +29,6 @@ struct ArraySegment{
 class BVH{
 public:
     __host__ BVH(const uint nbPixels, const float pixelSize): nbPixels(nbPixels), margin(pixelSize/2) {
-        std::cout << "nbPixels : " << nbPixels << "\n";
         bvhNodes       = (BVHNode*)        calloc(2*nbPixels, sizeof(BVHNode));
         stackMemory    = (ArraySegment*)   calloc(2*nbPixels, sizeof(ArraySegment));
         workingBuffer  = (Point3<float>**) calloc(nbPixels,   sizeof(Point3<float>*));
