@@ -15,10 +15,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, windows-2020]
+        os: [ubuntu-22.04, windows-2022]
         build_type: [Release]
         include:
-          - os: windows-2020
+          - os: windows-2022
             c_compiler: cl
             cpp_compiler: cl
             cuda_sub_packages: '[]'
