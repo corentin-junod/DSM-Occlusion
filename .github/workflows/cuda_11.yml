@@ -15,14 +15,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, windows-2019]
+        os: [ubuntu-22.04, windows-2019]
         build_type: [Release]
         include:
           - os: windows-2019
             c_compiler: cl
             cpp_compiler: cl
             cuda_sub_packages: '[]'
-          - os: ubuntu-24.04
+          - os: ubuntu-22.04
             c_compiler: gcc
             cpp_compiler: g++
             cuda_sub_packages: '["nvcc", "toolkit"]'
