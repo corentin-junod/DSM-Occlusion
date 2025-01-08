@@ -29,43 +29,46 @@ file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp" "src/*.cu")
 add_executable(${PROJECT_NAME} ${SOURCES})
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_14)
+target_compile_options(${PROJECT_NAME} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--Werror all-warnings --use_fast_math>)
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release")
 
 
 if (MSVC) # If windows
     #target_compile_options(${PROJECT_NAME} PRIVATE -W4 -O2)
 
-    if(NOT DEFINED GDAL_INCLUDE_DIR)
-        set(GDAL_INCLUDE_DIR "C:/OSGeo4W/include")
+    if(NOT DEFINED GDAL_INCLUDE)
+        set(GDAL_INCLUDE "C:/OSGeo4W/include")
     endif()
 
-    if(NOT DEFINED GDAL_LIB_DIR)
-        find_library(GDAL_LIB_DIR gdal.lib HINTS "C:/OSGeo4W/lib" REQUIRED)
+    if(NOT DEFINED GDAL_LIB)
+        find_library(GDAL_LIB gdal.lib HINTS "C:/OSGeo4W/lib" REQUIRED)
     endif()
 
 else() # If Linux
 	target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -O3 -fopenmp)
 
-    if(NOT DEFINED GDAL_INCLUDE_DIR)
-        set(GDAL_INCLUDE_DIR "/usr/include/gdal/")
+    if(NOT DEFINED GDAL_INCLUDE)
+        set(GDAL_INCLUDE "/usr/include/gdal/")
     endif()
 
-    if(NOT DEFINED GDAL_LIB_DIR)
-        find_library(GDAL_LIB_DIR NAMES gdal libgdal.so REQUIRED)
-        if(NOT GDAL_LIB_DIR)
-            message(FATAL_ERROR "GDAL library not found!")
-        endif()
+    if(NOT DEFINED GDAL_LIB)
+        find_library(GDAL_LIB NAMES gdal libgdal.so HINTS /usr/lib /usr/local/lib REQUIRED)
     endif()
 endif()
 
-target_compile_options(${PROJECT_NAME} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--Werror all-warnings --use_fast_math>)
 
-if (GDAL_INCLUDE_DIR)
-    target_include_directories(${PROJECT_NAME} PRIVATE ${GDAL_INCLUDE_DIR})
-else()
+if(NOT GDAL_INCLUDE)
     message(FATAL_ERROR "Unable to find GDAL headers directory")
 endif()
 
-target_link_libraries(${PROJECT_NAME} PRIVATE ${GDAL_LIB_DIR})
+if(NOT GDAL_LIB)
+    message(FATAL_ERROR "GDAL library not found!")
+endif()
+
+message(GDAL_INCLUDE=${GDAL_INCLUDE})
+message(GDAL_LIB=${GDAL_LIB})
+
+target_include_directories(${PROJECT_NAME} PRIVATE ${GDAL_INCLUDE})
+target_link_libraries(${PROJECT_NAME} PRIVATE ${GDAL_LIB})
 set_target_properties(${PROJECT_NAME} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
                                                            
