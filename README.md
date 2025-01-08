@@ -160,3 +160,7 @@ Note : You can also generate the executable by running `msbuild ./build/DSM_Occl
 *Reason* : Your CUDA driver is either missing or too old.  
 *Solution* : Install the latest [CUDA driver](https://www.nvidia.com/Download/index.aspx) for your system and graphic card.
 
+- ***CUDA error = 222*** when running the executable  
+*Reason* : Your CUDA toolkit installation is too old.
+*Solution* : Install the latest [CUDA driver](https://www.nvidia.com/Download/index.aspx) for your system and graphic card. Alternatively, you can also download the [version build with CUDA 11](https://github.com/Dolpic/DSM-Occlusion/releases/tag/cuda-11)
+

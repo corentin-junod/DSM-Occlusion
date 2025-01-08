@@ -1,4 +1,4 @@
-name: Build with CUDA 11.8.0
+name: Build with CUDA 11.7.0
 
 permissions:
   contents: write
@@ -34,7 +34,7 @@ jobs:
       uses: Jimver/cuda-toolkit@v0.2.19
       id: cuda-toolkit
       with:
-        cuda: '11.8.0'
+        cuda: '11.7.0'
         method: 'network'
         sub-packages: ${{ matrix.cuda_sub_packages }}
 
