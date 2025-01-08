@@ -22,7 +22,7 @@ jobs:
             c_compiler: cl
             cpp_compiler: cl
             cuda_sub_packages: '[]'
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             c_compiler: gcc
             cpp_compiler: g++
             cuda_sub_packages: '["nvcc", "toolkit"]'
