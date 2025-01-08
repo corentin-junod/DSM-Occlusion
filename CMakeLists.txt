@@ -51,7 +51,10 @@ else() # If Linux
     endif()
 
     if(NOT DEFINED GDAL_LIB_DIR)
-        find_library(GDAL_LIB_DIR NAMES libgdal gdal REQUIRED)
+        find_library(GDAL_LIB_DIR NAMES gdal libgdal.so REQUIRED)
+        if(NOT GDAL_LIB_DIR)
+            message(FATAL_ERROR "GDAL library not found!")
+        endif()
     endif()
 endif()
 

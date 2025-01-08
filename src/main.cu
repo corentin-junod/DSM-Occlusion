@@ -35,7 +35,7 @@ float strToFloat(const char* const str){
 int main(int argc, char* argv[]){
     const char* inputFilename  = nullptr;
     const char* outputFilename = "output.tif";
-    uint  rayPerPoint          = 512;
+    uint  rayPerPoint          = 1024;
     uint  tileSize             = 2000;
     uint  tileBuffer           = tileSize/3;
     bool  printInfos           = false;

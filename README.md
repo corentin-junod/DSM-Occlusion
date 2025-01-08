@@ -23,13 +23,13 @@ Supported operating systems are Windows and Linux.
 
 ### Windows
 
-1. Download the  [release](https://github.com/Dolpic/DSM-Occlusion/releases/tag/latest-main)  from this repository and run the executable contained in it from a command line.
+1. Download the [release](https://github.com/Dolpic/DSM-Occlusion/releases/tag/latest-main)  from this repository and run the executable contained in it from a command line.
 
 ### Linux
 
-1. Install the package of GDAL version 30 for your distribution. The package is generally named *gdal* or *libgdal*.
+1. Install GDAL for your distribution. The package is generally named *gdal* or *libgdal*.
 
-2. Download the latest release from this repository and run the executable contained in it from a command line.
+2. Download the release [for latest CUDA](https://github.com/Dolpic/DSM-Occlusion/releases/tag/latest-main) or [for CUDA 11](https://github.com/Dolpic/DSM-Occlusion/releases/tag/cuda-11) from this repository and run the executable contained in it from a command line.
 
 <br>
 <h2 align="center">Usage</h2>
@@ -43,11 +43,11 @@ Path to the input file. Must be a file supported by GDAL like .tif
 Path to the output file, where the result will be written
 
 - ***-r raysPerPixel***  
-*optional parameter*, default value : 256   
+*optional parameter*, default value : 1024   
 Number of rays to launch for each pixel. Increasing the parameter decreases the noise and increases the render quality and rendering time.  
-  - lower than 256 = low quality (noise is very noticeable)
-  - lower than 1024 = medium quality (noise is noticeable, but limited)
-  - lower than 2048 = high quality (noise is almost not noticeable)
+  - ~256 = low quality (noise is very noticeable)
+  - ~1024 = medium quality (noise is noticeable, but limited)
+  - ~2048 = high quality (noise is almost not noticeable)
 
 - ***-t tileSize***   
 *optional parameter*, default value : 2000, in pixels   
@@ -72,8 +72,8 @@ The higher the value, the more accurate and luminous the result will be. *Increa
 - ***--bias biasValue***   
 *optional parameter*, default value : 1.0   
 Bias applied to rays distribution. A value of 1 means no bias, and the rays are uniformly sampled in all directions.
-Values greater than 1 bias rays toward the horizon, revealing small terrain details but darkening already occluded areas.
-Values smaller than 1 bias rays toward the zenith, brightening dark areas and discarding terrain details.
+Values greater than 1 : bias rays toward the horizon, revealing small terrain details but darkening already occluded areas.
+Values smaller than 1 : bias rays toward the zenith, brightening dark areas and discarding terrain details.
 
 - ***--tiled***   
 *optional parameter*   
