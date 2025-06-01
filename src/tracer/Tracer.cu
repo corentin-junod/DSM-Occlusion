@@ -14,7 +14,7 @@ constexpr uint SEED = 1423; // For reproducible runs, can be any value
 constexpr uint BLOCK_DIM_SIZE = 8;
 
 __global__
-void renderGPU(const Array2D<float>& data, const Array2D<Point3<float>>& points, const BVH& bvh, const uint raysPerPoint, const uint maxBounces, curandState* const rndState, const float bias){    
+void renderGPU(const Array2D<float>& data, const Array2D<Point3<float>>& points, const BVH& bvh, uint raysPerPoint, uint maxBounces, curandState* const rndState, float bias){    
     const int x = threadIdx.x + blockIdx.x * blockDim.x;
     const int y = threadIdx.y + blockIdx.y * blockDim.y;
     if(x>=data.width() || y>=data.height()) return;
@@ -26,15 +26,14 @@ void renderGPU(const Array2D<float>& data, const Array2D<Point3<float>>& points,
 
     const Point3<float> origin(points[index].x, points[index].y, points[index].z);
     Vec3<float> direction = Vec3<float>(0.0, 0.0, 0.0);
-    
+
     __syncthreads(); // Wait for each thread to initialize its part of the shared memory
 
     float result = 0;
     for(uint i=0; i<raysPerPoint; i++){
-        const float rndTheta = powf(fdividef((i%raysPerDir) + curand_uniform(&localRndState), raysPerDir), bias);
-        const float rndPhi   = fdividef((i/raysPerDir) + curand_uniform(&localRndState), NB_SEGMENTS_DIR);
-
-        direction.setRandomInHemisphereCosine(rndPhi, rndTheta);
+        const float rndForTheta = powf(fdividef((i%raysPerDir) + curand_uniform(&localRndState), raysPerDir), bias);
+        const float rndForPhi   = fdividef((i/raysPerDir) + curand_uniform(&localRndState), NB_SEGMENTS_DIR);
+        direction.setRandomInHemisphereCosine(rndForPhi, rndForTheta);
         result += bvh.getLighting(origin, direction, localRndState, maxBounces);
         __syncthreads();
     }

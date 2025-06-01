@@ -110,14 +110,18 @@ public:
         uint nodeIndex = 0;
         uint bounces = 0;
         bool wasHit = false;
-        float radiance = 1;
+        float radianceFactor = 1;
         const float reflectance = 1;
+
+
+        const float ambientPower = 0.1;
+
 
         while(nodeIndex < maxIndex){
             const BVHNode node = bvhNodes[nodeIndex];
             if(node.isLeafe && wasHit){
                 if(bounces == maxBounces){
-                    return 0;
+                    return ambientPower;
                 }
                 bounces++;
                 nodeIndex = 0;
@@ -127,7 +131,7 @@ public:
                 // This BSDF must then be multiplied by cos(theta) according to the rendering equation.
                 // The PDF of a cosine-weighted random direction in the hemisphere is cos(theta)/PI
                 // We have : (R/PI) * cos(theta) / (cos(theta)/PI) = R, hence the multiplication by only R
-                radiance *= reflectance;
+                radianceFactor *= reflectance;
                 invDir = Vec3<float>(fdividef(1,dir.x), fdividef(1,dir.y), fdividef(1,dir.z));
             }else if(node.bboxLeft.intersects(invDir, curOrigin)){
                 nodeIndex += 1;
@@ -140,6 +144,35 @@ public:
                 wasHit=false;
             }
         }
+
+        float radiance = 0;
+
+        dir.normalize();
+
+
+        
+        const float skyPower = 0.25;
+        const float sunPower = 2.2;
+
+        float sunAzimuth = 180; // 0 to 360
+        float sunElevation = 60.0; // 0 to 90
+        float sunAngularDiam = 70; // 0 to 180
+
+        sunAngularDiam *= PI/180;
+
+        const float thetaSun = (90 - sunElevation) * PI/180;
+        const float phiSun = sunAzimuth * PI/180;
+        const float thetaDir = acosf(dir.z);
+        const float phiDir = atan2f(dir.y, dir.x);
+        const float diffPhi = fabsf(phiDir+PI - phiSun+PI); // +PI so that we are always with a positive difference
+        const float centralAngle = acosf(cosf(thetaSun)*cosf(thetaDir) + sinf(thetaSun)*sinf(thetaDir)*cosf(diffPhi));
+
+        if(centralAngle < sunAngularDiam/2.0){
+            radiance += radianceFactor * sunPower;
+        }
+
+        radiance += radianceFactor * skyPower;
+
         return radiance;
     }
 
