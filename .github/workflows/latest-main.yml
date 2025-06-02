@@ -36,6 +36,7 @@ jobs:
       with:
         method: 'network'
         sub-packages: ${{ matrix.cuda_sub_packages }}
+        log-file-suffix: '${{matrix.os}}.txt'
 
     - name: Retrieve & Install GDAL
       shell: bash
