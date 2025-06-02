@@ -14,7 +14,6 @@ public:
 private:
     const float pixelSize;
     const float exaggeration;
-    const uint maxBounces;
     
     BVH bvh; 
     Array2D<float>& data;

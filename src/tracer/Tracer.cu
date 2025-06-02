@@ -42,7 +42,7 @@ void renderGPU(const Array2D<float>& data, const Array2D<Point3<float>>& points,
 }
 
 Tracer::Tracer(Array2D<float>& data, const float pixelSize, const float exaggeration, const uint maxBounces): 
-    data(data), pixelSize(pixelSize), exaggeration(exaggeration), maxBounces(maxBounces),
+    data(data), pixelSize(pixelSize), exaggeration(exaggeration),
     points(Array2D<Point3<float>>(data.width(), data.height())), 
     bvh(BVH(data.width()*data.height(), pixelSize)){}
 

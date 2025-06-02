@@ -5,3 +5,5 @@ output_tiles/*
 *.o
 *.ppm
 dll_dependencies
+build_and_test.cmd
+build_and_test.sh
