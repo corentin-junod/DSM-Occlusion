@@ -15,6 +15,19 @@ struct Extent {
     int yMax = 0;
 };
 
+struct LightingParams {
+    uint maxBounces = 0;
+    uint raysPerPoint = 1024;
+    float bias = 1;
+    float ambientPower = 0;
+    float skyPower = 1;
+    float sunPower = 0;
+    float sunAzimuth = 0; 
+    float sunElevation = 45;
+    float sunAngularDiam = 11.4;
+    float materialReflectance = 1;
+};
+
 // Timing helper functions
 #ifdef TIMING_DEBUG
     #include <chrono>

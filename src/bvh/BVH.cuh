@@ -103,21 +103,20 @@ public:
         freeGPU(replica);
     }
 
-    __device__ float getLighting(const Point3<float>& origin, Vec3<float>& dir, curandState& localRndState, const uint maxBounces=0) const {
+    __device__ float getLighting(const Point3<float>& origin, Vec3<float>& dir, curandState& localRndState, const LightingParams& params) const {
         const uint maxIndex = nbNodes;
         Vec3<float> invDir(fdividef(1,dir.x), fdividef(1,dir.y), fdividef(1,dir.z));
         Point3<float> curOrigin = Point3<float>(origin.x, origin.y, origin.z);
         uint nodeIndex = 0;
         uint bounces = 0;
         bool wasHit = false;
-        float radiance = 1;
-        const float reflectance = 1;
+        float radianceFactor = 1;
 
         while(nodeIndex < maxIndex){
             const BVHNode node = bvhNodes[nodeIndex];
             if(node.isLeafe && wasHit){
-                if(bounces == maxBounces){
-                    return 0;
+                if(bounces == params.maxBounces){
+                    return params.ambientPower;
                 }
                 bounces++;
                 nodeIndex = 0;
@@ -127,7 +126,7 @@ public:
                 // This BSDF must then be multiplied by cos(theta) according to the rendering equation.
                 // The PDF of a cosine-weighted random direction in the hemisphere is cos(theta)/PI
                 // We have : (R/PI) * cos(theta) / (cos(theta)/PI) = R, hence the multiplication by only R
-                radiance *= reflectance;
+                radianceFactor *= params.materialReflectance;
                 invDir = Vec3<float>(fdividef(1,dir.x), fdividef(1,dir.y), fdividef(1,dir.z));
             }else if(node.bboxLeft.intersects(invDir, curOrigin)){
                 nodeIndex += 1;
@@ -140,6 +139,24 @@ public:
                 wasHit=false;
             }
         }
+
+        float radiance = 0;
+
+        dir.normalize();
+
+        const float thetaSun = (90 - params.sunElevation) * PI/180;
+        const float phiSun = params.sunAzimuth * PI/180;
+        const float thetaDir = acosf(dir.z);
+        const float phiDir = atan2f(dir.y, dir.x);
+        const float diffPhi = fabsf(phiDir+PI - phiSun+PI); // +PI so that we are always with a positive difference
+        const float centralAngle = acosf(cosf(thetaSun)*cosf(thetaDir) + sinf(thetaSun)*sinf(thetaDir)*cosf(diffPhi));
+
+        if(centralAngle < (params.sunAngularDiam*PI/180)/2.0){
+            radiance += radianceFactor * params.sunPower;
+        }
+
+        radiance += radianceFactor * params.skyPower;
+
         return radiance;
     }
 

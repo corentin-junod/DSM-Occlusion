@@ -5,11 +5,11 @@
 
 class Tracer{
 public:
-    Tracer(Array2D<float>& data, const float pixelSize, const float exaggeration=1.0, const uint maxBounce=0);
+    Tracer(Array2D<float>& data, float pixelSize, float exaggeration=1.0);
     ~Tracer();
 
-    void init(const bool prinInfos);
-    void trace(const bool useGPU, const uint raysPerPoint, const float bias);
+    void init(bool prinInfos);
+    void trace(bool useGPU, const LightingParams params);
 
 private:
     const float pixelSize;
