@@ -38,7 +38,6 @@ jobs:
         method: 'network'
         sub-packages: ${{ matrix.cuda_sub_packages }}
         log-file-suffix: '${{matrix.os}}.txt'
-        use-github-cache: false
         use-local-cache: false
 
     - name: Retrieve & Install GDAL
