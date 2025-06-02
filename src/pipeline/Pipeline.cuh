@@ -44,8 +44,7 @@ struct PipelineStage {
 
 class Pipeline{
 public:
-    Pipeline(
-        Raster& rasterIn, Raster* rasterOut, uint tileSize, uint rayPerPoint, uint tileBuffer, float exaggeration, uint maxBounces, float bias, uint startTile);
+    Pipeline(Raster& rasterIn, Raster* rasterOut, const LightingParams params, uint tileSize, uint tileBuffer, float exaggeration, uint startTile);
     ~Pipeline();
     bool step();
 
@@ -56,7 +55,7 @@ private:
 
     static void waitForNextStep(PipelineStage* stage, timePoint startTime);
     static void readData(PipelineStage* stage, const Raster* rasterIn, uint tileSize, uint tileBuffer, uint startTile);
-    static void initTile(PipelineStage* stage, float pixelSize, float exaggeration=1.0, uint maxBounces=0);
-    static void trace(PipelineStage* stage, uint rayPerPoint, float bias);
+    static void initTile(PipelineStage* stage, float pixelSize, float exaggeration=1.0);
+    static void trace(PipelineStage* stage, const LightingParams lightParams);
     static void writeData(PipelineStage* stage, const Raster* const rasterOut, const Raster* rasterIn);
 };

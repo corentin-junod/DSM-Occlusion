@@ -22,10 +22,10 @@ public:
     }
 
     __device__ __forceinline__ 
-    float setRandomInHemisphereCosine(const float rndPhi, const float rndTheta){
-        const float theta = acosf(sqrtf(rndTheta));
+    float setRandomInHemisphereCosine(float rndForPhi, float rndForTheta){
+        const float theta = acosf(sqrtf(rndForTheta));
         const float sinTheta = sinf(theta);
-        const float phi = TWO_PI*rndPhi;
+        const float phi = TWO_PI*rndForPhi;
         x = sinTheta*cosf(phi);
         y = sinTheta*sinf(phi);
         z = cosf(theta);
@@ -33,7 +33,7 @@ public:
     }
 
     __host__ 
-    float setRandomInHemisphereUniform(const byte nbSegments, const byte segmentNumber, const float rndNumber1, const float rndNumber2){
+    float setRandomInHemisphereUniform(byte nbSegments, byte segmentNumber, float rndNumber1, float rndNumber2){
         const float segmentSize = 2.0*PI/nbSegments;
         const float phi = rndNumber1 * segmentSize + segmentSize * segmentNumber;
         const float theta = acos(rndNumber2);

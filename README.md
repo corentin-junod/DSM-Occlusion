@@ -75,6 +75,30 @@ Bias applied to rays distribution. A value of 1 means no bias, and the rays are 
 Values greater than 1 : bias rays toward the horizon, revealing small terrain details but darkening already occluded areas.
 Values smaller than 1 : bias rays toward the zenith, brightening dark areas and discarding terrain details.
 
+- ***--ambientPower power***   
+*optional parameter*, default value : 0   
+Ambient luminosity, applied to every pixel, as if every pixel is receives some amount of light.
+
+- ***--skyPower power***   
+*optional parameter*, default value : 1   
+Uniform power distributed over the whole sky. Simulates a light coming from every direction of the sky.
+
+- ***--sunPower power***   
+*optional parameter*, default value : 0   
+Power of the sun. Simulates a sun in the sky casting light in all directions
+
+- ***--sunAzimuth angle***   
+*optional parameter*, default value : 0   
+Azimuth of the sun's position in the sky, in degrees. The value is between 0 and 360, clockwise.
+
+- ***--sunElevation angle***   
+*optional parameter*, default value : 45   
+Elevation of the sun's position in the sky, in degrees. The value is between 0 and 90. Zero is at the zenith, 90 is at the horizon.
+
+- ***--SunAngularDiam angle***   
+*optional parameter*, default value : 11.4
+Angular diameter covered by the sun in the sky, in degree. The value is between 0 and 180. Near zero the sun is a single dot in the sky, near 180 it covers the whole hemisphere. 
+
 - ***--tiled***   
 *optional parameter*   
 Instead of creating one output file and writing everything at once inside it, creates the folder *./output_tiles* and render each tile separately inside it. This is especially usefull when rendering very large files. If this options is enabled, the option *-o* is ignored.

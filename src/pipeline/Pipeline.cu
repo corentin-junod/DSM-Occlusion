@@ -11,7 +11,7 @@ condition_variable cv;
 atomic<int> nbFinished(0);
 mutex global_mutex;
 
-Pipeline::Pipeline(Raster& rasterIn, Raster* rasterOut, uint tileSize, uint rayPerPoint, uint tileBuffer, float exaggeration, uint maxBounces, float bias, uint startTile): 
+Pipeline::Pipeline(Raster& rasterIn, Raster* rasterOut, const LightingParams lightParams, uint tileSize, uint tileBuffer, float exaggeration, uint startTile): 
 rasterIn(rasterIn), rasterOut(rasterOut){
     const uint nbTiles = (uint)ceil((float)rasterIn.getHeight()/tileSize) * (uint)ceil((float)rasterIn.getWidth()/tileSize);
 
@@ -21,8 +21,8 @@ rasterIn(rasterIn), rasterOut(rasterOut){
     }
 
     stages[0].thread = new thread(Pipeline::readData,  &stages[0], &rasterIn, tileSize, tileBuffer, startTile);
-    stages[1].thread = new thread(Pipeline::initTile,  &stages[1], rasterIn.getPixelSize(), exaggeration, maxBounces);
-    stages[2].thread = new thread(Pipeline::trace,     &stages[2], rayPerPoint, bias);
+    stages[1].thread = new thread(Pipeline::initTile,  &stages[1], rasterIn.getPixelSize(), exaggeration);
+    stages[2].thread = new thread(Pipeline::trace,     &stages[2], lightParams);
     stages[3].thread = new thread(Pipeline::writeData, &stages[3], rasterOut, &rasterIn);
 }
 
@@ -130,7 +130,7 @@ void Pipeline::readData(PipelineStage* stage, const Raster* rasterIn, uint tileS
     debug_print("> Thread " + STAGE_NAMES[stage->id] + " exit\n");
 }
 
-void Pipeline::initTile(PipelineStage* stage, float pixelSize, float exaggeration, uint maxBounces){
+void Pipeline::initTile(PipelineStage* stage, float pixelSize, float exaggeration){
     PipelineState* state = stage->state;
     timePoint startTime = chrono::high_resolution_clock::now();
     while(!state->finished){
@@ -142,7 +142,7 @@ void Pipeline::initTile(PipelineStage* stage, float pixelSize, float exaggeratio
             if(state->tracer != nullptr){
                 delete state->tracer;
             }
-            state->tracer = new Tracer(*state->dataOut, pixelSize, exaggeration, maxBounces);
+            state->tracer = new Tracer(*state->dataOut, pixelSize, exaggeration);
             state->tracer->init(false);
         }else if(state->id >= 0){
             logger::cout() << "> Tile "<< state->id+1  <<" skipped because it had no data \n";
@@ -154,7 +154,7 @@ void Pipeline::initTile(PipelineStage* stage, float pixelSize, float exaggeratio
     debug_print("> Thread " + STAGE_NAMES[stage->id] + " exit\n");
 }
 
-void Pipeline::trace(PipelineStage* stage, uint rayPerPoint, float bias){
+void Pipeline::trace(PipelineStage* stage, const LightingParams params){
     PipelineState* state = stage->state;
     timePoint startTime = chrono::high_resolution_clock::now();
     while(!state->finished){
@@ -163,7 +163,7 @@ void Pipeline::trace(PipelineStage* stage, uint rayPerPoint, float bias){
         state = stage->state;
         if(state->hasData && state->id >= 0){
             debug_print("> Tracing tile " + to_string(state->id+1) + "...\n");
-            state->tracer->trace(true, rayPerPoint, bias);
+            state->tracer->trace(true, params);
         }
     }
     debug_print("> Thread " + STAGE_NAMES[stage->id] + " finished...\n");
