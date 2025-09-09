@@ -31,9 +31,10 @@ jobs:
     - uses: actions/checkout@v3
 
     - name: Retrieve & Install CUDA Toolkit
-      uses: Jimver/cuda-toolkit@v0.2.24
+      uses: Jimver/cuda-toolkit@v0.2.27
       id: cuda-toolkit
       with:
+        cuda: '12.6.0'
         method: 'network'
         sub-packages: ${{ matrix.cuda_sub_packages }}
         log-file-suffix: '${{matrix.os}}.txt'

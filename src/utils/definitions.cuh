@@ -25,7 +25,7 @@ struct LightingParams {
     float sunAzimuth = 0; 
     float sunElevation = 45;
     float sunAngularDiam = 11.4;
-    float materialReflectance = 1;
+    float materialReflectance = 1.0;
 };
 
 // Timing helper functions

@@ -95,7 +95,7 @@ Azimuth of the sun's position in the sky, in degrees. The value is between 0 and
 *optional parameter*, default value : 45   
 Elevation of the sun's position in the sky, in degrees. The value is between 0 and 90. Zero is at the zenith, 90 is at the horizon.
 
-- ***--SunAngularDiam angle***   
+- ***--sunAngularDiam angle***   
 *optional parameter*, default value : 11.4
 Angular diameter covered by the sun in the sky, in degree. The value is between 0 and 180. Near zero the sun is a single dot in the sky, near 180 it covers the whole hemisphere. 
 
