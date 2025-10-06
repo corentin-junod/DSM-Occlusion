@@ -11,7 +11,7 @@ condition_variable cv;
 atomic<int> nbFinished(0);
 mutex global_mutex;
 
-Pipeline::Pipeline(Raster& rasterIn, Raster* rasterOut, const LightingParams lightParams, uint tileSize, uint tileBuffer, float exaggeration, uint startTile): 
+Pipeline::Pipeline(Raster& rasterIn, Raster* rasterOut, const LightingParams lightParams, uint tileSize, uint tileBuffer, float exaggeration, uint startTile, GDALDataType outputType): 
 rasterIn(rasterIn), rasterOut(rasterOut){
     const uint nbTiles = (uint)ceil((float)rasterIn.getHeight()/tileSize) * (uint)ceil((float)rasterIn.getWidth()/tileSize);
 
@@ -23,7 +23,7 @@ rasterIn(rasterIn), rasterOut(rasterOut){
     stages[0].thread = new thread(Pipeline::readData,  &stages[0], &rasterIn, tileSize, tileBuffer, startTile);
     stages[1].thread = new thread(Pipeline::initTile,  &stages[1], rasterIn.getPixelSize(), exaggeration);
     stages[2].thread = new thread(Pipeline::trace,     &stages[2], lightParams);
-    stages[3].thread = new thread(Pipeline::writeData, &stages[3], rasterOut, &rasterIn);
+    stages[3].thread = new thread(Pipeline::writeData, &stages[3], rasterOut, &rasterIn, outputType);
 }
 
 Pipeline::~Pipeline(){
@@ -171,7 +171,7 @@ void Pipeline::trace(PipelineStage* stage, const LightingParams params){
     debug_print("> Thread " + STAGE_NAMES[stage->id] + " exit\n");
 }
 
-void Pipeline::writeData(PipelineStage* stage, const Raster* const rasterOut, const Raster* const rasterIn){
+void Pipeline::writeData(PipelineStage* stage, const Raster* const rasterOut, const Raster* const rasterIn, GDALDataType outputType){
     PipelineState* state = stage->state;
     timePoint startTime = chrono::high_resolution_clock::now();
     const float noDataValue = rasterIn->getNoDataValue();
@@ -200,7 +200,16 @@ void Pipeline::writeData(PipelineStage* stage, const Raster* const rasterOut, co
                 std::ostringstream oss;
                 oss << "./output_tiles/" << std::setw(8) << std::setfill('0') << state->id <<"_tile_" 
                     << std::setw(5) << std::setfill('0') << tileX << "_" << std::setw(5) << std::setfill('0') << tileY << ".tif";
-                Raster::writeTile(dataCropped.begin(), state->x, state->y, state->width, state->height, rasterIn, oss.str().c_str());
+                if(outputType == GDT_Float32){
+                    Raster::writeTile(dataCropped.begin(), state->x, state->y, state->width, state->height, rasterIn, oss.str().c_str(), outputType);
+                }else if(outputType == GDT_Byte){
+                    Array2D<unsigned char> dataCroppedByte(state->width, state->height);
+                    for(uint i=0; i<dataCropped.size(); i++){
+                        dataCroppedByte[i] = (unsigned char)(255.0f * std::max(std::min(dataCropped[i], 1.0f), 0.0f));
+                    }
+                    Raster::writeTile(dataCroppedByte.begin(), state->x, state->y, state->width, state->height, rasterIn, oss.str().c_str(), outputType);
+                }
+                
             }
         }
     }

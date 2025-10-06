@@ -14,7 +14,7 @@ Raster::Raster(const char* const filename, const Raster* const copyFrom) {
             throw std::runtime_error("Unable to open input file : " + std::string(filename));
         }
     }else{
-        dataset = copyFrom->dataset->GetDriver()->CreateCopy(filename, copyFrom->dataset, false, NULL, NULL, NULL ); 
+        dataset = copyFrom->dataset->GetDriver()->CreateCopy(filename, copyFrom->dataset, false, NULL, NULL, NULL); 
     }
     dataBand = dataset->GetRasterBand(1);
     width  = dataBand->GetXSize();

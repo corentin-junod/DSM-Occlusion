@@ -21,9 +21,15 @@ public:
     Raster clone(const char* const newFileName);
 
 
-    static void writeTile(float* data, int x, int y, int width, int height, const Raster* originalRaster, const char* outputPath) {
+    static void writeTile(void* data, int x, int y, int width, int height, const Raster* originalRaster, const char* outputPath, GDALDataType dataType) {
+        char** papszOptions = nullptr;
+        papszOptions = CSLSetNameValue(papszOptions, "BIGTIFF", "YES");
+        papszOptions = CSLSetNameValue(papszOptions, "NUM_THREADS", "ALL_CPUS");
+        papszOptions = CSLSetNameValue(papszOptions, "COMPRESS", "DEFLATE");
+
         GDALDriver* driver = GetGDALDriverManager()->GetDriverByName("GTiff");
-        GDALDataset* outputDataset = driver->Create(outputPath, width, height, 1, GDT_Float32, nullptr);
+        GDALDataset* outputDataset = driver->Create(outputPath, width, height, 1, dataType, papszOptions);
+
         if (!outputDataset) {
             std::cerr << "Failed to create GeoTiff file at " << outputPath << std::endl;
             return;
@@ -43,7 +49,7 @@ public:
 
         GDALRasterBand* band = outputDataset->GetRasterBand(1);
         band->SetNoDataValue(originalRaster->noDataValue);
-        if (band->RasterIO(GF_Write, 0, 0, width, height, data, width, height, GDT_Float32, 0, 0) != CE_None) {
+        if (band->RasterIO(GF_Write, 0, 0, width, height, data, width, height, dataType, 0, 0) != CE_None) {
             std::cerr << "Failed to write data to " << outputPath << std::endl;
         }
         GDALClose(outputDataset);

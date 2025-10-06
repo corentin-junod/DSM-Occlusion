@@ -24,7 +24,8 @@ const char* const USAGE =
     "[--sunAngularDiam (in degree, between 0 and 180)] "
     "[-b bias] "
     "[--tiled]"
-    "[--startTile tileID]";
+    "[--startTile tileID]"
+    "[--outputByte]";
 
 bool strEqual(const char* const s1, const char* const s2){
     return std::strncmp(s1, s2, MAX_STR_SIZE) == 0;
@@ -57,6 +58,7 @@ int main(int argc, char* argv[]){
     float exaggeration         = 1.0;
     bool tiledRender           = false;
     uint startTile             = 0;
+    GDALDataType outputType    = GDT_Float32;
 
     LightingParams lightParams = LightingParams();
 
@@ -95,6 +97,8 @@ int main(int argc, char* argv[]){
             tiledRender = true;
         }else if(strEqual(argv[i], "--startTile")){
             startTile = strToUint(argv[++i]);
+        }else if(strEqual(argv[i], "--outputByte")){
+            outputType = GDT_Byte;
         }else{
             logger::cout() << "Error : Invalid argument : " << argv[i] << '\n' << USAGE;
             exit(EXIT_FAILURE);
@@ -119,11 +123,11 @@ int main(int argc, char* argv[]){
 
             if(!tiledRender){
                 Raster rasterOut = Raster(outputFilename, &rasterIn);
-                Pipeline pipeline = Pipeline(rasterIn, &rasterOut, lightParams, tileSize, tileBuffer, exaggeration, startTile);
+                Pipeline pipeline = Pipeline(rasterIn, &rasterOut, lightParams, tileSize, tileBuffer, exaggeration, startTile, outputType);
                 while(pipeline.step()){}
             }else{
                 std::filesystem::create_directory("./output_tiles/");
-                Pipeline pipeline = Pipeline(rasterIn, nullptr, lightParams, tileSize, tileBuffer, exaggeration, startTile);
+                Pipeline pipeline = Pipeline(rasterIn, nullptr, lightParams, tileSize, tileBuffer, exaggeration, startTile, outputType);
                 while(pipeline.step()){}
             }
             logger::cout() << "Writing statistics and closing file... \n";
