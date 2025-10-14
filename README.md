@@ -107,7 +107,7 @@ Instead of creating one output file and writing everything at once inside it, cr
 *optional parameter*, default value : 0   
 Id of the first tile to be processed. All tiles before it will be ignored and not rendered. This is usefull combined with the *--tiled* options to resume a render at a given tile.
 
-- ***--outputByte***
+- ***--outputByte***   
 *optional parameter*, only works with ***--tiled***
 The saved tiles have their values rescaled between 0 and 255 and saved as Byte datatype. This generates tiles that take less disk space than in Float32, which is the default.
 

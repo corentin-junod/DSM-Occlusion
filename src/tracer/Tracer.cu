@@ -14,7 +14,7 @@ constexpr uint SEED = 1423; // For reproducible runs, can be any value
 constexpr uint BLOCK_DIM_SIZE = 8;
 
 __global__
-void renderGPU(const Array2D<float>& data, const Array2D<Point3<float>>& points, const BVH& bvh, curandState* const rndState, const LightingParams params){    
+void renderGPU(const Array2D<float>& data, const Array2D<Point3<float>>& points, const BinaryTree& bvh, curandState* const rndState, const LightingParams params){    
     const int x = threadIdx.x + blockIdx.x * blockDim.x;
     const int y = threadIdx.y + blockIdx.y * blockDim.y;
     if(x>=data.width() || y>=data.height()) return;
@@ -43,7 +43,7 @@ void renderGPU(const Array2D<float>& data, const Array2D<Point3<float>>& points,
 Tracer::Tracer(Array2D<float>& data, const float pixelSize, const float exaggeration): 
     data(data), pixelSize(pixelSize), exaggeration(exaggeration),
     points(Array2D<Point3<float>>(data.width(), data.height())), 
-    bvh(BVH(data.width()*data.height(), pixelSize)){}
+    bvh(BinaryTree(data.width()*data.height(), pixelSize)){}
 
 Tracer::~Tracer(){
     cudaFree(randomState);
@@ -73,7 +73,7 @@ void Tracer::trace(bool useGPU, const LightingParams params){
         const dim3 gridDims(data.width()/blockDims.x+1, data.height()/blockDims.y+1);
 
         Array2D<Point3<float>>* pointsGPU = points.toGPU();
-        BVH* bvhGPU = bvh.toGPU();
+        BinaryTree* bvhGPU = bvh.toGPU();
         Array2D<float>* dataGPU = data.toGPU();
         renderGPU<<<gridDims, blockDims>>>(*dataGPU, *pointsGPU, *bvhGPU, randomState, params);
         syncGPU();

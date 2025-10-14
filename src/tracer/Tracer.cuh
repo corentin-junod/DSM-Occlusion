@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../bvh/BVH.cuh"
+#include "../bvh/BinaryTree.cuh"
 #include <curand_kernel.h>
 
 class Tracer{
@@ -15,7 +16,7 @@ private:
     const float pixelSize;
     const float exaggeration;
     
-    BVH bvh; 
+    BinaryTree bvh; 
     Array2D<float>& data;
     Array2D<Point3<float>> points;
     curandState* randomState = nullptr;

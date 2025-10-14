@@ -156,7 +156,6 @@ public:
         }
 
         radiance += radianceFactor * params.skyPower;
-
         return radiance;
     }
 
@@ -216,7 +215,6 @@ public:
         TIMED_PRINT(split_time)
         TIMED_PRINT(set_englobing_time)
         TIMED_PRINT(update_segment_size_time)
-
         free(stack);
     }
 

@@ -138,7 +138,7 @@ void Pipeline::initTile(PipelineStage* stage, float pixelSize, float exaggeratio
         startTime = chrono::high_resolution_clock::now();
         state = stage->state;
         if(state->hasData && state->id >= 0){
-            debug_print("> Building BVH of tile " + to_string(state->id+1) + "...\n");
+            debug_print("> Building tree for tile " + to_string(state->id+1) + "...\n");
             if(state->tracer != nullptr){
                 delete state->tracer;
             }

@@ -132,7 +132,6 @@ public:
         }
     }
 
-private:
     T minX;
     T maxX;
     T minY;
